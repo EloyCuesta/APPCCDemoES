@@ -19,6 +19,8 @@ final readonly class RegistroAPPCCService
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private \App\Security\TenantAuthorization $authorization,
+        private \App\Security\CurrentEstablecimientoContext $current,
         private RegistroAPPCCRepository $registros,
         private ContextoAPPCC $contexto,
         private CalendarioAPPCC $calendario,
@@ -35,22 +37,48 @@ final readonly class RegistroAPPCCService
             $existing = $this->registros->find($registro->getId());
             throw new BusinessRuleException($existing !== null ? 'Un registro histórico no puede modificarse.' : 'Un registro nuevo no debe tener identificador.');
         }
+        if ($this->current->isApiRequest()) { $registro->setUsuario($this->current->usuario()); }
+        $this->authorization->assertWrite($registro);
         $local = $this->contexto->establecimiento($registro->getEstablecimiento());
         $usuario = $this->contexto->usuario($registro->getUsuario(), $local);
-        $tarea = $this->contexto->tarea($registro->getTarea(), $local);
-        $registro->setEstablecimiento($local)->setUsuario($usuario)->setTarea($tarea);
+        $programada = $registro->getTareaProgramada();
+        if ($programada?->getId() === null || $programada->getEstablecimiento()?->getId() !== $local->getId()) {
+            throw new BusinessRuleException('La ejecución debe existir y pertenecer al establecimiento.');
+        }
+        $tarea = $this->contexto->tarea($programada->getTarea(), $local);
+        $registro->setEstablecimiento($local)->setUsuario($usuario);
         $config = $this->contexto->configuracion($local);
         $this->calendario->validarFecha($tarea, $local, $config, $registro->getFechaHora());
         $registro->setConforme($this->determinarConformidad($registro));
         if (!$registro->isConforme() && $config->isRequiereObservacionNoConforme() && trim($registro->getObservaciones() ?? '') === '') {
             throw new BusinessRuleException('Debe indicar una observación para un registro no conforme.');
         }
-        // TODO de dominio: requiereFotoNoConforme necesita un modelo real de adjuntos.
+        // requiereFotoNoConforme queda pendiente de un flujo de subida atómica.
         $registro->setFechaHora($this->calendario->paraPersistir($registro->getFechaHora()));
         $registro->setCreatedAt($this->calendario->paraPersistir($this->clock->now()));
         $this->validacion->validar($registro);
 
-        return $this->transaccion->ejecutar(function () use ($registro, $config): RegistroAPPCC {
+        return $this->transaccion->ejecutar(function () use ($registro, $config, $programada): RegistroAPPCC {
+            $this->em->getConnection()->fetchOne('SELECT id FROM tarea_programada WHERE id = ? FOR UPDATE', [$programada->getId()]);
+            $this->em->refresh($programada);
+            if ($programada->getRegistro() !== null) {
+                throw new BusinessRuleException('La ejecución ya tiene un registro.');
+            }
+            if (!in_array($programada->getEstado(), [\App\Enum\EstadoTareaProgramada::PENDIENTE, \App\Enum\EstadoTareaProgramada::VENCIDA], true)) {
+                throw new BusinessRuleException('La ejecución no está pendiente o vencida.');
+            }
+            if ($programada->getFechaProgramada() > $this->clock->now() || $registro->getFechaHora() < $programada->getFechaProgramada()) {
+                throw new BusinessRuleException('El registro no puede preceder a su ejecución programada.');
+            }
+            if (($programada->getEstado() === \App\Enum\EstadoTareaProgramada::VENCIDA
+                || ($programada->getFechaLimite() !== null && $programada->getFechaLimite() < $this->clock->now()))
+                && (!$config->isPermiteRegistrosAtrasados()
+                    || ($config->getMaximoMinutosRegistroAtrasado() !== null && $programada->getFechaLimite() !== null
+                        && $this->clock->now()->getTimestamp() - $programada->getFechaLimite()->getTimestamp() > $config->getMaximoMinutosRegistroAtrasado() * 60))) {
+                throw new BusinessRuleException('El establecimiento no permite registrar esta ejecución fuera de plazo.');
+            }
+            $programada->completar($this->calendario->paraPersistir($this->clock->now()));
+            $programada->setRegistro($registro);
             $this->em->persist($registro);
             if (!$registro->isConforme() && $config->isGeneraIncidenciaAutomatica()) {
                 $this->incidencias->crearDesdeRegistro($registro);

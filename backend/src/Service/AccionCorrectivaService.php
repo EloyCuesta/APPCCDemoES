@@ -18,6 +18,8 @@ final readonly class AccionCorrectivaService
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private \App\Security\TenantAuthorization $authorization,
+        private \App\Security\CurrentEstablecimientoContext $current,
         private IncidenciaRepository $incidencias,
         private IncidenciaService $incidenciaService,
         private ContextoAPPCC $contexto,
@@ -33,8 +35,12 @@ final readonly class AccionCorrectivaService
         if ($accion->getId() !== null) {
             throw new BusinessRuleException('Una acción correctiva histórica no puede modificarse.');
         }
+        if ($this->current->isApiRequest()) { $accion->setUsuario($this->current->usuario()); }
+        $this->authorization->assertWrite($accion);
         $id = $accion->getIncidencia()?->getId();
-        $incidencia = $id === null ? null : $this->incidencias->find($id);
+        $criteria = ['id' => $id];
+        if ($this->current->isApiRequest()) { $criteria['establecimiento'] = $this->current->establecimiento(); }
+        $incidencia = $id === null ? null : $this->incidencias->findOneBy($criteria);
         if ($incidencia === null) {
             throw new BusinessRuleException('La incidencia no existe.');
         }

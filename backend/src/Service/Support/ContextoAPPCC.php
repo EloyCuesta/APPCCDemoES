@@ -19,6 +19,7 @@ final readonly class ContextoAPPCC
 {
     public function __construct(
         private EstablecimientoRepository $establecimientos,
+        private \App\Security\TenantAuthorization $authorization,
         private TareaAPPCCRepository $tareas,
         private UsuarioRepository $usuarios,
         private UsuarioEstablecimientoRepository $membresias,
@@ -28,11 +29,13 @@ final readonly class ContextoAPPCC
 
     public function establecimiento(?Establecimiento $input): Establecimiento
     {
+        $this->authorization->assertLocal($input);
         $local = $input?->getId() === null ? null : $this->establecimientos->find($input->getId());
         if ($local === null || !$local->isActivo()) {
             throw new BusinessRuleException('El establecimiento no existe o está inactivo.');
         }
 
+        $this->authorization->assertLocal($local);
         return $local;
     }
 
@@ -51,7 +54,7 @@ final readonly class ContextoAPPCC
 
     public function tarea(?TareaAPPCC $input, Establecimiento $local): TareaAPPCC
     {
-        $tarea = $input?->getId() === null ? null : $this->tareas->find($input->getId());
+        $tarea = $input?->getId() === null ? null : $this->tareas->findOneBy(['id' => $input->getId(), 'establecimiento' => $local]);
         if ($tarea === null || !$tarea->isActiva()) {
             throw new BusinessRuleException('La tarea no existe o está inactiva.');
         }

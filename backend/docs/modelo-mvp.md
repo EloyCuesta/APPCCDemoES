@@ -1,161 +1,94 @@
 # Modelo MVP APPCC
 
-Implementación adaptada a PHP 8.3.11 (el proyecto requiere >= 8.2), Symfony 7.4.18,
-Doctrine ORM 3.7.0, DBAL 4.4.4, API Platform 4.3.18 y PostgreSQL 18.
-No se han añadido dependencias.
+Estado validado de fase 1, sobre `main` desde `3fee215`. Backend PHP 8.3,
+Symfony 7.4, API Platform 4.3, Doctrine ORM 3.7/DBAL 4.4 y PostgreSQL **18.3**.
+Se mantienen identificadores enteros y las tres migraciones existentes, que estaban
+aplicadas en desarrollo. Las tablas operativas consultadas estaban vacías.
 
-## Entidades, tablas y API
+## Entidades y relaciones
 
-Cada entidad utiliza atributos Doctrine, validación Symfony y un repositorio estándar
-en `src/Repository`. Los nombres de tabla se generan con la estrategia del proyecto.
-
-| Entidad | Tabla PostgreSQL | Ruta de colección |
-| --- | --- | --- |
-| EntidadFiscal (existente) | `entidad_fiscal` | `/api/entidades-fiscales` |
-| Establecimiento | `establecimiento` | `/api/establecimientos` |
-| Usuario | `usuario` | `/api/usuarios` |
-| UsuarioEstablecimiento | `usuario_establecimiento` | `/api/usuarios-establecimientos` |
-| PlanControl | `plan_control` | `/api/planes-control` |
-| PuntoControl | `punto_control` | `/api/puntos-control` |
-| TareaAPPCC | `tarea_appcc` | `/api/tareas` |
-| RegistroAPPCC | `registro_appcc` | `/api/registros` |
-| Incidencia | `incidencia` | `/api/incidencias` |
-| AccionCorrectiva | `accion_correctiva` | `/api/acciones-correctivas` |
-| PlantillaAPPCC | `plantilla_appcc` | `/api/plantillas-appcc` |
-
-Las rutas de colección admiten GET y POST; las rutas `/{id}`, GET.
-Los recursos nuevos admiten PATCH salvo `RegistroAPPCC` y `AccionCorrectiva`, que
-permiten añadir y consultar evidencias. Los nuevos recursos no admiten DELETE:
-las configuraciones se desactivan con `activo` o `activa`, y las incidencias se
-gestionan mediante `estado`. Se mantienen las operaciones previas de EntidadFiscal.
-
-PATCH utiliza `application/merge-patch+json`; POST admite `application/ld+json`.
-Las relaciones ManyToOne se envían y reciben como IRI, por ejemplo
-`"establecimiento": "/api/establecimientos/1"`. Las colecciones inversas están
-disponibles en Doctrine pero no se leen ni escriben mediante los cuerpos JSON.
-Esto evita ciclos y respuestas que contengan todo el histórico del establecimiento.
-Se usan las [opciones de serialización de API Platform](https://api-platform.com/docs/v4.2/core/serialization/).
-
-## Relaciones
+Se conservan EntidadFiscal, Establecimiento, Usuario, UsuarioEstablecimiento,
+PlanControl, PuntoControl, TareaAPPCC, RegistroAPPCC, Incidencia, AccionCorrectiva,
+PlantillaAPPCC y las configuraciones fiscal y de establecimiento.
+Se añaden TareaProgramada, Evidencia e HistorialIncidencia, con repositorios propios.
 
 ```mermaid
 erDiagram
-    EntidadFiscal ||--o{ Establecimiento : explota
-    Usuario ||--o{ UsuarioEstablecimiento : pertenece
-    Establecimiento ||--o{ UsuarioEstablecimiento : miembros
-    Establecimiento ||--o{ PlanControl : planes
-    Establecimiento ||--o{ PuntoControl : puntos
-    Establecimiento ||--o{ TareaAPPCC : tareas
-    PlanControl ||--o{ TareaAPPCC : contiene
-    PuntoControl o|--o{ TareaAPPCC : ubica
-    Establecimiento ||--o{ RegistroAPPCC : registros
-    TareaAPPCC ||--o{ RegistroAPPCC : evidencia
-    Usuario ||--o{ RegistroAPPCC : realiza
-    Establecimiento ||--o{ Incidencia : incidencias
-    RegistroAPPCC o|--o{ Incidencia : origina
-    Incidencia ||--o{ AccionCorrectiva : acciones
-    Usuario ||--o{ AccionCorrectiva : ejecuta
+    TareaAPPCC ||--o{ TareaProgramada : define
+    Establecimiento ||--o{ TareaProgramada : agenda
+    Usuario o|--o{ TareaProgramada : asignado
+    TareaProgramada ||--o| RegistroAPPCC : registra
+    RegistroAPPCC ||--o| Incidencia : origina
+    Incidencia ||--o{ AccionCorrectiva : corrige
+    Incidencia ||--o{ HistorialIncidencia : transiciones
+    RegistroAPPCC o|--o{ Evidencia : adjunta
+    Incidencia o|--o{ Evidencia : adjunta
 ```
 
-Las 15 relaciones son bidireccionales, con Collection/ArrayCollection y métodos
-para añadir, quitar y reasignar manteniendo ambos lados. Las relaciones obligatorias
-tienen `JoinColumn(nullable: false)` y `NotNull`; pueden estar temporalmente sin
-asignar mientras se construye un objeto. Quitar una relación obligatoria requiere
-reasignarla antes de persistir.
+TareaAPPCC es una **definición recurrente**, con frecuencia, límites e instrucciones.
+TareaProgramada representa una ejecución concreta. RegistroAPPCC referencia de forma
+obligatoria y única la ejecución y conserva establecimiento y usuario.
+La definición se obtiene mediante `getTarea()` de solo lectura.
 
-PlantillaAPPCC es un catálogo independiente por TipoActividad. Su configuración es
-una definición inicial; los datos reales permanecen en RegistroAPPCC. El modelo
-permite enlazar incidencias con registros o crearlas manualmente. La aplicación de
-plantillas y la creación automática de incidencias son flujos posteriores; no hay
-automatismos que generen o modifiquen evidencias en esta implementación del modelo.
+`TareaProgramadaService::programar()` crea explícitamente una ocurrencia idempotente
+por definición y fecha, con precisión de segundos. Un bloqueo sobre la definición y
+UNIQUE protegen la concurrencia. No hay cron, Messenger ni generación automática,
+tampoco para turnos, recepciones o demanda. El servicio permite gestionar estados y
+detectar vencidas. La agenda consulta ocurrencias pendientes/vencidas hasta la fecha.
 
-## Enums
+Registrar un control bloquea la ejecución, valida plazo/pertenencia y calcula la
+conformidad numérica/booleana. Registro, COMPLETADA, completadaAt, incidencia automática
+e historial se confirman juntos. Las violaciones de unicidad se traducen a HTTP 409.
+Los valores decimales siguen siendo strings NUMERIC(12,3); no se recalculan históricos.
 
-Se conserva TipoEntidadFiscal. Se añaden en `src/Enum`:
+Evidencia guarda **solo metadatos**, con exactamente un padre (registro o incidencia),
+FK RESTRICT, tamaño positivo y SHA-256 opcional. Symfony y CHECK PostgreSQL validan XOR.
+No hay subida, lectura de archivos, S3 ni garantía atómica de `requiereFotoNoConforme`
+o firma. HistorialIncidencia es de solo lectura por API; servicio y trigger PostgreSQL
+impiden actualizar o borrar entradas. No se usan cascade remove ni orphanRemoval.
 
-- TipoActividad: restaurante, bar_cafeteria, carniceria, pescaderia, panaderia,
-  pasteleria, obrador, hotel, catering, comercio_alimentario, otro.
-- RolEstablecimiento: admin, responsable, trabajador, auditor.
-- TipoPlanControl: temperaturas, limpieza, plagas, recepcion, trazabilidad,
-  alergenos, agua, residuos, mantenimiento, aceite_fritura, otro.
-- TipoPuntoControl: camara_frigorifica, congelador, almacen, cocina, recepcion,
-  lavavajillas, equipo, zona, otro.
-- FrecuenciaTarea: diaria, semanal, mensual, por_turno, por_recepcion, bajo_demanda.
-- GravedadIncidencia: baja, media, alta, critica.
-- EstadoIncidencia: abierta, en_proceso, resuelta.
+## Migraciones
 
-Todos son backed enums string y se mapean con `enumType`, sin tipos ENUM nativos
-específicos de PostgreSQL.
+1. `Version20260911130812`: entidad fiscal.
+2. `Version20260911132708`: modelo inicial.
+3. `Version20260911151914`: configuraciones.
+4. `Version20260912083224`: ejecuciones, backfill, evidencias, historial e índices.
 
-## Integridad y decisiones
+La cuarta se generó con Doctrine y se revisó manualmente: no basta con renombrar la
+FK antigua. Inserta una ejecución completada por registro, con fechaHora como fecha
+programada/finalización, y conserva usuario, establecimiento, definición y resultado.
+Asigna la nueva FK y verifica el backfill antes de NOT NULL y de retirar la columna.
+Duplicados históricos de definición/fecha o incidencia/registro bloquean toda la
+migración sin borrar ni fusionar datos. Requieren una decisión explícita de conservación.
+Para incidencias antiguas solo se guarda una instantánea identificada como migración;
+no se inventan autores ni transiciones pasadas. `down()` solo procede sin nuevos datos.
 
-- EntidadFiscal conserva todos sus campos y validaciones; solo se añade la relación
-  con establecimientos. Su migración anterior permanece intacta.
-- Usuario no implementa autenticación. Su correo se normaliza a minúsculas sin
-  espacios exteriores, con restricción única y validación de duplicados.
-- UsuarioEstablecimiento impone UNIQUE(usuario_id, establecimiento_id), además de
-  validación Symfony. Los roles son datos; no hay autorización o aislamiento de
-  lecturas por usuario en esta fase, que excluye login y seguridad de acceso.
-- TareaAPPCC valida que su plan y punto correspondan a su establecimiento.
-  RegistroAPPCC comprueba la tarea e Incidencia comprueba el registro asociado.
-  Tampoco se puede trasladar un plan/punto con tareas de otro establecimiento ni
-  una tarea con registros de otro establecimiento mediante la API.
-- No se usa cascade remove ni orphanRemoval. Todas las FK usan ON DELETE RESTRICT.
-  Desactivar configuraciones no elimina ni recalcula registros históricos.
-- Los decimales usan NUMERIC(12,3) y strings en PHP/API: `"3.800"`. Se admiten hasta
-  nueve cifras enteras y tres decimales. Se validan formato y orden mínimo/máximo.
-- `horaPrevista` usa TIME_IMMUTABLE y formato API `HH:mm:ss`, por ejemplo `08:30:00`.
-- createdAt se establece en el constructor. Los updatedAt de Establecimiento y
-  PlanControl usan PreUpdate, como la EntidadFiscal existente. Ambos campos son de
-  solo lectura por API. fechaHora y fechaApertura empiezan con la fecha actual y
-  admiten indicar cuándo ocurrió el hecho. Todas las fechas usan DateTimeImmutable.
-- `conforme` debe indicarse expresamente al registrar un control. Incidencia empieza
-  ABIERTA; fechaCierre no puede preceder a fechaApertura.
-- No se instalan módulos de autenticación, facturación, notificaciones ni otros
-  módulos fuera del alcance. La estructura común sirve para todos los sectores.
+La base de desarrollo se conserva sin aplicar la cuarta migración. La base exclusiva
+de pruebas sí recibe todas las migraciones. `doctrine:schema:validate` en desarrollo
+indica esquema pendiente; en pruebas pasa. No se ha usado schema:update --force.
 
-## Migraciones y comprobaciones
+## Pruebas
 
-Las dos migraciones se aplican en orden:
-
-1. `Version20260911130812`: crea `entidad_fiscal` (ya existía, no modificada).
-2. `Version20260911132708`: crea las diez tablas nuevas, índices y claves foráneas.
-
-La segunda se generó con `make:migration` y se ajustó para no repetir la creación de
-entidad_fiscal incluida en la primera, que aún estaba pendiente. Su reversión solo
-afecta a las tablas nuevas. No se ha ejecutado ninguna migración en PostgreSQL.
-
-Comprobaciones realizadas:
-
-- Sintaxis PHP y `cache:clear` correctos.
-- `doctrine:schema:validate`: mapeo correcto; esquema pendiente de sincronizar hasta
-  aplicar las migraciones.
-- `debug:router`: los once recursos registrados.
-- `tests/EntidadFiscalTest.php`: regresión del modelo fiscal existente.
-- `tests/MvpModelTest.php`: 60 peticiones API y pruebas de relaciones, validaciones,
-  JSON multisector, fechas, unicidad, FK y conservación de históricos en SQLite
-  en memoria. Incluye respuestas de error intencionales; Symfony puede registrarlas
-  en stderr aunque la prueba termine correctamente.
-- `tests/MigrationPlanTest.php`: compara sin conexión el SQL acumulado de las dos
-  migraciones con el esquema PostgreSQL generado por el mapeo actual. No ejecuta SQL.
-
-Desde `backend`, se pueden repetir las pruebas sin modificar PostgreSQL:
+Los cinco scripts anteriores se han convertido a PHPUnit sobre PostgreSQL. Se añadieron
+PHPUnit, BrowserKit y CssSelector mediante symfony/test-pack (Flex desempaqueta el pack).
+Se prueban servicios, configuración, entidades, restricciones reales, rollback,
+índices, migración desde vacío, down/reaplicación y backfill con datos.
+No quedan scripts antiguos pendientes de ejecución y no se usa SQLite.
 
 ```powershell
-php tests/EntidadFiscalTest.php
-php tests/MvpModelTest.php
-php tests/MigrationPlanTest.php
-```
-
-Después de revisar ambas migraciones, aplicar manualmente:
-
-```powershell
-php bin/console doctrine:migrations:migrate
+composer validate --strict
+php bin/console lint:container
+$env:APP_ENV='test'
+php bin/console doctrine:migrations:migrate --no-interaction
 php bin/console doctrine:schema:validate
-php bin/console cache:clear
+php bin/phpunit
 ```
 
-No es necesario generar otra migración para estos cambios. Antes de aplicar las
-existentes, la advertencia de migraciones pendientes y el esquema sin sincronizar
-son resultados esperados. La ejecución del SQL real en PostgreSQL queda pendiente
-de esa revisión manual; las pruebas de persistencia se han realizado en memoria.
+La infraestructura exige APP_ENV=test, PostgreSQL, nombre terminado en `_test` y
+coincidencia exacta con `APPCC_TEST_DATABASE`. Las limpiezas usan TRUNCATE solo tras
+validar esas condiciones. Nunca ejecutan database:drop ni imprimen la URL.
+
+## Seguridad pendiente de fase 2
+
+JWT, selección de establecimiento y permisos todavía no están implementados en esta
+fase. La siguiente fase queda condicionada a superar todas las comprobaciones anteriores.

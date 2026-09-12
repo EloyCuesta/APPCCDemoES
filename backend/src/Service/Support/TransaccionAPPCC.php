@@ -20,6 +20,11 @@ final readonly class TransaccionAPPCC
             return $operation();
         }
 
-        return $this->em->wrapInTransaction($operation);
+        try {
+            return $this->em->wrapInTransaction($operation);
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
+            // Incluye el flush exterior de incidencias automáticas anidadas.
+            throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('La operación entra en conflicto con otro registro existente o concurrente.', $e);
+        }
     }
 }

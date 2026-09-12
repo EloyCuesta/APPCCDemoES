@@ -17,6 +17,8 @@ final readonly class TareaAPPCCService
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private \App\Security\TenantAuthorization $authorization,
+        private \App\Security\CurrentEstablecimientoContext $current,
         private TareaAPPCCRepository $tareas,
         private RegistroAPPCCRepository $registros,
         private ContextoAPPCC $contexto,
@@ -37,6 +39,7 @@ final readonly class TareaAPPCCService
 
     public function guardarCambios(TareaAPPCC $tarea): TareaAPPCC
     {
+        $this->authorization->assertWrite($tarea);
         if ($tarea->getId() === null || $this->buscar($tarea->getId()) !== $tarea) {
             throw new BusinessRuleException('La tarea debe existir antes de cambiar su configuración.');
         }
@@ -55,6 +58,8 @@ final readonly class TareaAPPCCService
 
     private function buscar(int $id): TareaAPPCC
     {
-        return $this->tareas->find($id) ?? throw new BusinessRuleException('La tarea no existe.');
+        $criteria = ['id' => $id];
+        if ($this->current->isApiRequest()) { $criteria['establecimiento'] = $this->current->establecimiento(); }
+        return $this->tareas->findOneBy($criteria) ?? throw new BusinessRuleException('La tarea no existe.');
     }
 }

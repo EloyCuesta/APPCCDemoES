@@ -36,7 +36,7 @@ class AccionCorrectiva
 
     #[ORM\ManyToOne(inversedBy: 'accionesCorrectivas')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
-    #[ApiProperty(readableLink: false, writableLink: false)]
+    #[ApiProperty(readableLink: false, writable: false)]
     #[Assert\NotNull(message: 'El campo usuario es obligatorio.')]
     private ?Usuario $usuario = null;
 

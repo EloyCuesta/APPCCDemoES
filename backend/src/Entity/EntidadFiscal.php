@@ -24,10 +24,8 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\HasLifecycleCallbacks]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/entidades-fiscales'),
-    new Post(uriTemplate: '/entidades-fiscales'),
     new Get(uriTemplate: '/entidades-fiscales/{id}'),
     new Patch(uriTemplate: '/entidades-fiscales/{id}'),
-    new Delete(uriTemplate: '/entidades-fiscales/{id}'),
 ])]
 class EntidadFiscal
 {

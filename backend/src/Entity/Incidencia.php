@@ -21,6 +21,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
+#[ORM\UniqueConstraint(name: 'uniq_incidencia_registro', columns: ['registro_id'], options: ['where' => '(registro_id IS NOT NULL)'])]
+#[ORM\Index(name: 'idx_incidencia_agenda', columns: ['establecimiento_id', 'estado', 'fecha_apertura'])]
 #[ORM\Entity(repositoryClass: IncidenciaRepository::class)]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/incidencias'),
@@ -81,10 +83,22 @@ class Incidencia
     #[ApiProperty(readable: false, writable: false)]
     private Collection $accionesCorrectivas;
 
+    /** @var Collection<int, Evidencia> */
+    #[ORM\OneToMany(mappedBy: 'incidencia', targetEntity: Evidencia::class)]
+    #[ApiProperty(readable: false, writable: false)]
+    private Collection $evidencias;
+
+    /** @var Collection<int, HistorialIncidencia> */
+    #[ORM\OneToMany(mappedBy: 'incidencia', targetEntity: HistorialIncidencia::class)]
+    #[ApiProperty(readable: false, writable: false)]
+    private Collection $historial;
+
     public function __construct()
     {
         $this->fechaApertura = new \DateTimeImmutable();
         $this->createdAt = new \DateTimeImmutable();
+        $this->evidencias = new ArrayCollection();
+        $this->historial = new ArrayCollection();
         $this->accionesCorrectivas = new ArrayCollection();
     }
 
@@ -252,5 +266,29 @@ class Incidencia
                 ->atPath('registro')
                 ->addViolation();
         }
+    }
+
+    /** @return Collection<int, Evidencia> */
+    public function getEvidencias(): Collection { return $this->evidencias; }
+
+    public function addEvidencia(Evidencia $item): static
+    {
+        if (!$this->evidencias->contains($item)) { $this->evidencias->add($item); $item->setIncidencia($this); }
+        return $this;
+    }
+
+    public function removeEvidencia(Evidencia $item): static
+    {
+        if ($this->evidencias->removeElement($item) && $item->getIncidencia() === $this) { $item->setIncidencia(null); }
+        return $this;
+    }
+
+    /** @return Collection<int, HistorialIncidencia> */
+    public function getHistorial(): Collection { return $this->historial; }
+
+    public function addHistorial(HistorialIncidencia $item): void
+    {
+        if ($item->getIncidencia() !== $this) { throw new \InvalidArgumentException('Historial de otra incidencia.'); }
+        if (!$this->historial->contains($item)) { $this->historial->add($item); }
     }
 }

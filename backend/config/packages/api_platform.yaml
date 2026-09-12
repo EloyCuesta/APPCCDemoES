@@ -3,7 +3,10 @@ api_platform:
     version: 1.0.0
     exception_to_status:
         App\Exception\BusinessRuleException: 422
+        Symfony\Component\Serializer\Exception\UnexpectedValueException: 400
     defaults:
         stateless: true
+        security: "is_granted('ROLE_USER')"
+        security_post_denormalize: "is_granted('APPCC_WRITE', object)"
         cache_headers:
-            vary: ['Content-Type', 'Authorization', 'Origin']
+            vary: ['Content-Type', 'Authorization', 'Origin', 'X-Establecimiento-Id']

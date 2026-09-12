@@ -19,9 +19,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: PlantillaAPPCCRepository::class)]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/plantillas-appcc'),
-    new Post(uriTemplate: '/plantillas-appcc'),
     new Get(uriTemplate: '/plantillas-appcc/{id}'),
-    new Patch(uriTemplate: '/plantillas-appcc/{id}'),
 ])]
 class PlantillaAPPCC
 {

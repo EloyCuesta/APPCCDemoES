@@ -22,12 +22,43 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['email'], message: 'Ya existe un usuario con este correo electrónico.')]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/usuarios'),
-    new Post(uriTemplate: '/usuarios'),
     new Get(uriTemplate: '/usuarios/{id}'),
-    new Patch(uriTemplate: '/usuarios/{id}'),
 ])]
-class Usuario
+class Usuario implements \Symfony\Component\Security\Core\User\UserInterface, \Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface
 {
+    #[ORM\Column(length: 255, nullable: true)]
+    #[\Symfony\Component\Serializer\Attribute\Ignore]
+    #[ApiProperty(readable: false, writable: false)]
+    private ?string $password = null;
+
+    /** @var list<string> Roles globales Symfony; funciones empresariales en UsuarioEstablecimiento. */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    #[ApiProperty(readable: false, writable: false)]
+    private array $roles = [];
+
+    public function getUserIdentifier(): string { return $this->email; }
+
+    #[\Symfony\Component\Serializer\Attribute\Ignore]
+    public function getPassword(): ?string { return $this->password; }
+
+    /** Recibe exclusivamente un hash creado por UserPasswordHasherInterface. */
+    public function setPassword(?string $hash): static { $this->password = $hash; return $this; }
+
+    /** @return list<string> */
+    public function getRoles(): array { return array_values(array_unique([...$this->roles, ...($this->activo ? ['ROLE_USER'] : [])])); }
+
+    /** @param list<string> $roles */
+    public function setRoles(array $roles): static
+    {
+        foreach ($roles as $role) {
+            if (!in_array($role, ['ROLE_USER', 'ROLE_PLATFORM_ADMIN'], true)) { throw new \InvalidArgumentException('Rol global no permitido.'); }
+        }
+        $this->roles = array_values(array_unique($roles));
+        return $this;
+    }
+
+    public function eraseCredentials(): void {}
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]

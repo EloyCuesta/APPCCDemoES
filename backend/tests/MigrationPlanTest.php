@@ -1,76 +1,77 @@
 <?php
-
 declare(strict_types=1);
+namespace App\Tests;
 
-use Doctrine\DBAL\DriverManager;
-use Doctrine\DBAL\Configuration;
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
-use Doctrine\DBAL\Schema\AbstractSchemaManager;
-use Doctrine\DBAL\Schema\PostgreSQLSchemaManager;
+use App\Tests\Support\{PostgresTestCase, PostgresSafety};
 use Doctrine\DBAL\Schema\Schema;
-use Doctrine\DBAL\Schema\SchemaConfig;
-use Doctrine\DBAL\Schema\SchemaManagerFactory;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\UnderscoreNamingStrategy;
-use Doctrine\ORM\ORMSetup;
-use Doctrine\ORM\Tools\SchemaTool;
-use DoctrineMigrations\Version20260911130812;
-use DoctrineMigrations\Version20260911132708;
-use DoctrineMigrations\Version20260911151914;
+use Doctrine\ORM\Tools\SchemaValidator;
 use Psr\Log\NullLogger;
 
-// Compara el SQL planificado. No abre conexión ni ejecuta SQL o migraciones en una BD.
-require dirname(__DIR__).'/vendor/autoload.php';
-require dirname(__DIR__).'/migrations/Version20260911130812.php';
-require dirname(__DIR__).'/migrations/Version20260911132708.php';
-require dirname(__DIR__).'/migrations/Version20260911151914.php';
-
-$dbalConfig = new Configuration();
-$dbalConfig->setSchemaManagerFactory(new class implements SchemaManagerFactory {
-    public function createSchemaManager(Connection $connection): AbstractSchemaManager
+final class MigrationPlanTest extends PostgresTestCase
+{
+    private function executeMigration(string $version, string $direction): void
     {
-        return new class($connection, $connection->getDatabasePlatform()) extends PostgreSQLSchemaManager {
-            public function createSchemaConfig(): SchemaConfig
-            {
-                // Evitar la consulta SELECT current_schema() de DBAL.
-                $config = new SchemaConfig();
-                $config->setName('public');
-                $config->setMaxIdentifierLength(63);
-
-                return $config;
-            }
-        };
+        $db = $this->em->getConnection();
+        PostgresSafety::assertTestDatabase($db);
+        require_once dirname(__DIR__).'/migrations/'.$version.'.php';
+        $class = 'DoctrineMigrations\\'.$version;
+        $migration = new $class($db, new NullLogger());
+        $migration->$direction(new Schema());
+        $db->transactional(function () use ($migration, $db): void {
+            foreach ($migration->getSql() as $query) { $db->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes()); }
+        });
     }
-});
-$connection = DriverManager::getConnection(['driver' => 'pdo_pgsql', 'serverVersion' => '18'], $dbalConfig);
-$config = ORMSetup::createAttributeMetadataConfiguration([dirname(__DIR__).'/src/Entity'], true);
-$config->setNamingStrategy(new UnderscoreNamingStrategy());
-$config->setIdentityGenerationPreferences([PostgreSQLPlatform::class => ClassMetadata::GENERATOR_TYPE_IDENTITY]);
-$em = new EntityManager($connection, $config);
-$expected = (new SchemaTool($em))->getCreateSchemaSql($em->getMetadataFactory()->getAllMetadata());
-$planned = [];
 
-foreach ([Version20260911130812::class, Version20260911132708::class, Version20260911151914::class] as $class) {
-    $migration = new $class($connection, new NullLogger());
-    $migration->up(new Schema());
-    foreach ($migration->getSql() as $query) {
-        $planned[] = $query->getStatement();
+    public function testIndicesChecksYForeignKeysReales(): void
+    {
+        $db = $this->em->getConnection();
+        $indexes = $db->fetchAllKeyValue("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public'");
+        foreach (['idx_programada_agenda', 'uniq_programada_tarea_fecha', 'idx_registro_local_fecha', 'idx_registro_usuario_fecha', 'idx_tarea_local_activa', 'idx_incidencia_agenda', 'idx_membresia_local_activo_usuario', 'uniq_incidencia_registro'] as $name) { self::assertArrayHasKey($name, $indexes); }
+        self::assertStringContainsString('UNIQUE', $indexes['uniq_programada_tarea_fecha']);
+        self::assertStringContainsString('WHERE (registro_id IS NOT NULL)', $indexes['uniq_incidencia_registro']);
+        $checks = $db->fetchFirstColumn("SELECT conname FROM pg_constraint WHERE contype = 'c'");
+        self::assertContains('chk_evidencia_parent', $checks);
+        self::assertContains('chk_programada_completada', $checks);
+        self::assertSame(0, (int) $db->fetchOne("SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname = 'public' AND c.contype = 'f' AND c.confdeltype <> 'r'"));
+        self::assertSame([], array_values(array_diff((new SchemaValidator($this->em))->getUpdateSchemaList(), ['DROP TABLE doctrine_migration_versions'])));
+    }
+
+    public function testMigracionDesdeVacioDownYReaplicacion(): void
+    {
+        PostgresSafety::truncate($this->em->getConnection());
+        $this->em->clear();
+        $versions = array_map(static fn ($f) => basename($f, '.php'), glob(dirname(__DIR__).'/migrations/Version*.php'));
+        foreach (array_reverse($versions) as $version) { $this->executeMigration($version, 'down'); }
+        self::assertSame(['doctrine_migration_versions'], $this->em->getConnection()->createSchemaManager()->listTableNames());
+        foreach ($versions as $version) { $this->executeMigration($version, 'up'); }
+        self::assertSame([], array_values(array_diff((new SchemaValidator($this->em))->getUpdateSchemaList(), ['DROP TABLE doctrine_migration_versions'])));
+    }
+
+    public function testBackfillConservaRegistroYOrigen(): void
+    {
+        $this->executeMigration('Version20260912083224', 'down');
+        $db = $this->em->getConnection();
+        try {
+            $id = $db->fetchOne("INSERT INTO registro_appcc (tarea_id, establecimiento_id, usuario_id, fecha_hora, conforme, valor_numerico, created_at) VALUES (?, ?, ?, '2025-06-01 12:00:00', false, 9.125, '2025-06-01 12:00:00') RETURNING id", [$this->tarea->getId(), $this->local->getId(), $this->usuario->getId()]);
+            $this->executeMigration('Version20260912083224', 'up');
+            $row = $db->fetchAssociative('SELECT r.valor_numerico, p.* FROM registro_appcc r JOIN tarea_programada p ON p.id = r.tarea_programada_id WHERE r.id = ?', [$id]);
+            self::assertSame('completada', $row['estado']);
+            self::assertSame('2025-06-01 12:00:00', $row['fecha_programada']);
+            self::assertSame($row['fecha_programada'], $row['completada_at']);
+            self::assertSame($this->tarea->getId(), $row['tarea_id']);
+            self::assertSame($this->local->getId(), $row['establecimiento_id']);
+            self::assertSame($this->usuario->getId(), $row['asignado_a_id']);
+            self::assertSame('9.125', $row['valor_numerico']);
+        } finally {
+            $this->em->clear();
+        }
+    }
+
+    public function testDownRechazaPerdidaDeDatos(): void
+    {
+        $this->registrar('9');
+        try { $this->executeMigration('Version20260912083224', 'down'); self::fail('No debe borrar históricos.'); }
+        catch (\Doctrine\DBAL\Exception\DriverException $e) { self::assertStringContainsString('Reversión bloqueada', $e->getMessage()); }
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM registro_appcc'));
     }
 }
-
-sort($expected);
-sort($planned);
-if ($planned !== $expected) {
-    throw new RuntimeException('El SQL de las migraciones no coincide con el modelo: '.json_encode([
-        'faltante' => array_values(array_diff($expected, $planned)),
-        'sobrante' => array_values(array_diff($planned, $expected)),
-    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
-}
-
-if ($connection->isConnected()) {
-    throw new RuntimeException('Esta prueba no debe abrir una conexión.');
-}
-
-echo "OK: las tres migraciones generan exactamente el esquema PostgreSQL de las 13 entidades, sin conectar a la BD.\n";

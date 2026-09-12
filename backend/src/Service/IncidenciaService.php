@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Entity\Incidencia;
+use App\Entity\HistorialIncidencia;
+use App\Entity\Usuario;
 use App\Entity\RegistroAPPCC;
 use App\Enum\EstadoIncidencia;
 use App\Enum\GravedadIncidencia;
@@ -23,6 +25,8 @@ final readonly class IncidenciaService
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private \App\Security\TenantAuthorization $authorization,
+        private \App\Security\CurrentEstablecimientoContext $current,
         private IncidenciaRepository $incidencias,
         private RegistroAPPCCRepository $registros,
         private AccionCorrectivaRepository $acciones,
@@ -36,8 +40,11 @@ final readonly class IncidenciaService
 
     public function crearDesdeRegistro(RegistroAPPCC $registro, GravedadIncidencia $gravedad = GravedadIncidencia::MEDIA): Incidencia
     {
+        $this->authorization->assertWrite($registro);
         if ($registro->getId() !== null) {
-            $registro = $this->registros->find($registro->getId()) ?? throw new BusinessRuleException('El registro no existe.');
+            $criteria = ['id' => $registro->getId()];
+            if ($this->current->isApiRequest()) { $criteria['establecimiento'] = $this->current->establecimiento(); }
+            $registro = $this->registros->findOneBy($criteria) ?? throw new BusinessRuleException('El registro no existe.');
         } elseif (!$this->em->getUnitOfWork()->isScheduledForInsert($registro)) {
             throw new BusinessRuleException('El registro debe persistirse dentro del caso de uso antes de generar una incidencia.');
         }
@@ -63,20 +70,23 @@ final readonly class IncidenciaService
                 ->setGravedad($gravedad);
             $this->prepararNueva($incidencia);
             $this->em->persist($incidencia);
+            $this->anotar($incidencia, null, EstadoIncidencia::ABIERTA, $registro->getUsuario());
 
             return $incidencia;
         });
     }
 
-    public function crearManual(Incidencia $incidencia): Incidencia
+    public function crearManual(Incidencia $incidencia, ?Usuario $autor = null): Incidencia
     {
+        if ($this->current->isApiRequest()) { $autor = $this->current->usuario(); }
+        $this->authorization->assertWrite($incidencia);
         if ($incidencia->getId() !== null || $incidencia->getEstado() !== EstadoIncidencia::ABIERTA) {
             throw new BusinessRuleException('Una incidencia nueva debe estar abierta y no tener identificador.');
         }
         $incidencia->setEstablecimiento($this->contexto->establecimiento($incidencia->getEstablecimiento()));
         if ($incidencia->getRegistro() !== null) {
             $id = $incidencia->getRegistro()->getId();
-            $registro = $id === null ? null : $this->registros->find($id);
+            $registro = $id === null ? null : $this->registros->findOneBy(['id' => $id, 'establecimiento' => $incidencia->getEstablecimiento()]);
             if ($registro === null || $registro->isConforme() !== false
                 || $registro->getEstablecimiento()?->getId() !== $incidencia->getEstablecimiento()->getId()
             ) {
@@ -86,45 +96,51 @@ final readonly class IncidenciaService
         }
         $this->prepararNueva($incidencia);
 
-        return $this->transaccion->ejecutar(function () use ($incidencia): Incidencia {
+        return $this->transaccion->ejecutar(function () use ($incidencia, $autor): Incidencia {
             $this->em->persist($incidencia);
+            $this->anotar($incidencia, null, EstadoIncidencia::ABIERTA, $autor);
 
             return $incidencia;
         });
     }
 
-    public function ponerEnProceso(int $id): Incidencia
+    public function ponerEnProceso(int $id, ?Usuario $autor = null): Incidencia
     {
-        return $this->cambiarEstado($this->buscar($id), EstadoIncidencia::EN_PROCESO);
+        return $this->cambiarEstado($this->buscar($id), EstadoIncidencia::EN_PROCESO, $autor);
     }
 
-    public function resolver(int $id): Incidencia
+    public function resolver(int $id, ?Usuario $autor = null): Incidencia
     {
-        return $this->cambiarEstado($this->buscar($id), EstadoIncidencia::RESUELTA);
+        return $this->cambiarEstado($this->buscar($id), EstadoIncidencia::RESUELTA, $autor);
     }
 
-    public function guardarCambios(Incidencia $incidencia): Incidencia
+    public function guardarCambios(Incidencia $incidencia, ?Usuario $autor = null): Incidencia
     {
         if ($incidencia->getId() === null || $this->buscar($incidencia->getId()) !== $incidencia || $incidencia->getEstado() === null) {
             throw new BusinessRuleException('La incidencia debe existir y tener un estado válido.');
         }
 
-        return $this->cambiarEstado($incidencia, $incidencia->getEstado());
+        return $this->cambiarEstado($incidencia, $incidencia->getEstado(), $autor);
     }
 
     public function validarAdmiteAcciones(Incidencia $incidencia): void
     {
         $original = $this->em->getUnitOfWork()->getOriginalEntityData($incidencia);
-        if (($original['estado'] ?? $incidencia->getEstado()) === EstadoIncidencia::RESUELTA) {
+        $estado = $original['estado'] ?? $incidencia->getEstado();
+        $estado = is_string($estado) ? EstadoIncidencia::from($estado) : $estado;
+        if ($estado === EstadoIncidencia::RESUELTA) {
             throw new BusinessRuleException('No se pueden añadir acciones a una incidencia resuelta.');
         }
     }
 
-    private function cambiarEstado(Incidencia $incidencia, EstadoIncidencia $destino): Incidencia
+    private function cambiarEstado(Incidencia $incidencia, EstadoIncidencia $destino, ?Usuario $autor = null): Incidencia
     {
+        if ($this->current->isApiRequest()) { $autor = $this->current->usuario(); }
+        $this->authorization->assertWrite($incidencia);
         $local = $this->contexto->establecimiento($incidencia->getEstablecimiento());
         $original = $this->em->getUnitOfWork()->getOriginalEntityData($incidencia);
         $origen = $original['estado'] ?? $incidencia->getEstado();
+        $origen = is_string($origen) ? EstadoIncidencia::from($origen) : $origen;
         $incidencia->setEstado($origen)->setFechaCierre($original['fechaCierre'] ?? null);
         if (($original['establecimiento'] ?? null) !== $incidencia->getEstablecimiento()
             || ($original['registro'] ?? null) !== $incidencia->getRegistro()
@@ -148,12 +164,21 @@ final readonly class IncidenciaService
         $incidencia->setEstado($destino);
         $this->validacion->validar($incidencia);
 
-        return $this->transaccion->ejecutar(static fn (): Incidencia => $incidencia);
+        return $this->transaccion->ejecutar(function () use ($incidencia, $origen, $destino, $autor): Incidencia {
+            $persistido = $this->em->getConnection()->fetchOne('SELECT estado FROM incidencia WHERE id = ? FOR UPDATE', [$incidencia->getId()]);
+            if ($persistido !== $origen->value) {
+                throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('La incidencia ha cambiado en otra petición.');
+            }
+            if ($origen !== $destino) { $this->anotar($incidencia, $origen, $destino, $autor); }
+            return $incidencia;
+        });
     }
 
     private function buscar(int $id): Incidencia
     {
-        return $this->incidencias->find($id) ?? throw new BusinessRuleException('La incidencia no existe.');
+        $criteria = ['id' => $id];
+        if ($this->current->isApiRequest()) { $criteria['establecimiento'] = $this->current->establecimiento(); }
+        return $this->incidencias->findOneBy($criteria) ?? throw new BusinessRuleException('La incidencia no existe.');
     }
 
     private function prepararNueva(Incidencia $incidencia): void
@@ -162,5 +187,10 @@ final readonly class IncidenciaService
         $incidencia->setEstado(EstadoIncidencia::ABIERTA)->setFechaApertura($ahora)->setCreatedAt($ahora)->setFechaCierre(null);
         $incidencia->setGravedad($incidencia->getGravedad() ?? GravedadIncidencia::MEDIA);
         $this->validacion->validar($incidencia);
+    }
+    private function anotar(Incidencia $incidencia, ?EstadoIncidencia $anterior, EstadoIncidencia $nuevo, ?Usuario $autor): void
+    {
+        if ($autor !== null) { $autor = $this->contexto->usuario($autor, $incidencia->getEstablecimiento()); }
+        $this->em->persist(new HistorialIncidencia($incidencia, $anterior, $nuevo, $autor, createdAt: $this->calendario->paraPersistir($this->clock->now())));
     }
 }

@@ -19,7 +19,7 @@ class RegistroAPPCCRepository extends ServiceEntityRepository
     public function existsForTaskBetween(\App\Entity\TareaAPPCC $tarea, \DateTimeImmutable $inicio, \DateTimeImmutable $fin): bool
     {
         return $this->createQueryBuilder('r')->select('r.id')
-            ->andWhere('r.tarea = :tarea')->andWhere('r.fechaHora >= :inicio')->andWhere('r.fechaHora < :fin')
+            ->innerJoin('r.tareaProgramada', 'p')->andWhere('p.tarea = :tarea')->andWhere('r.fechaHora >= :inicio')->andWhere('r.fechaHora < :fin')
             ->setParameter('tarea', $tarea)
             ->setParameter('inicio', $inicio, \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)
             ->setParameter('fin', $fin, \Doctrine\DBAL\Types\Types::DATETIME_IMMUTABLE)
@@ -28,6 +28,6 @@ class RegistroAPPCCRepository extends ServiceEntityRepository
 
     public function existsForTask(\App\Entity\TareaAPPCC $tarea): bool
     {
-        return $this->count(['tarea' => $tarea]) > 0;
+        return $this->createQueryBuilder('r')->select('r.id')->innerJoin('r.tareaProgramada', 'p')->andWhere('p.tarea = :tarea')->setParameter('tarea', $tarea)->setMaxResults(1)->getQuery()->getOneOrNullResult() !== null;
     }
 }

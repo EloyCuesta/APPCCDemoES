@@ -4,36 +4,24 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Entity\Establecimiento;
-use App\Entity\TareaAPPCC;
-use App\Repository\RegistroAPPCCRepository;
-use App\Repository\TareaAPPCCRepository;
-use App\Service\Support\CalendarioAPPCC;
-use App\Service\Support\ContextoAPPCC;
+use App\Entity\{Establecimiento, TareaProgramada};
+use App\Enum\EstadoTareaProgramada;
+use App\Repository\TareaProgramadaRepository;
+use App\Service\Support\{CalendarioAPPCC, ContextoAPPCC};
+use Psr\Clock\ClockInterface;
 
 final readonly class TareasPendientesService
 {
-    public function __construct(
-        private TareaAPPCCRepository $tareas,
-        private RegistroAPPCCRepository $registros,
-        private CalendarioAPPCC $calendario,
-        private ContextoAPPCC $contexto,
-    ) {
-    }
+    public function __construct(private TareaProgramadaRepository $tareas, private ContextoAPPCC $contexto, private CalendarioAPPCC $calendario, private ClockInterface $clock) {}
 
-    /** @return list<TareaAPPCC> */
+    /** @return list<TareaProgramada> Ejecuciones pendientes o vencidas hasta la fecha indicada. */
     public function obtenerPendientes(Establecimiento $establecimiento, ?\DateTimeImmutable $fecha = null): array
     {
-        $local = $this->contexto->establecimiento($establecimiento);
-        $pendientes = [];
-        foreach ($this->tareas->findActiveByEstablecimiento($local) as $tarea) {
-            $this->contexto->validarRelacionesTarea($tarea, $local);
-            $periodo = $this->calendario->periodo($tarea, $local, $fecha);
-            if ($periodo !== null && !$this->registros->existsForTaskBetween($tarea, $periodo[0], $periodo[1])) {
-                $pendientes[] = $tarea;
-            }
-        }
-
-        return $pendientes;
+        return $this->tareas->createQueryBuilder('p')
+            ->andWhere('p.establecimiento = :local AND p.estado IN (:estados) AND p.fechaProgramada <= :fecha')
+            ->setParameter('local', $this->contexto->establecimiento($establecimiento))
+            ->setParameter('estados', [EstadoTareaProgramada::PENDIENTE->value, EstadoTareaProgramada::VENCIDA->value])
+            ->setParameter('fecha', $this->calendario->paraPersistir($fecha ?? $this->clock->now()), 'datetime_immutable')
+            ->orderBy('p.fechaProgramada', 'ASC')->addOrderBy('p.id', 'ASC')->getQuery()->getResult();
     }
 }

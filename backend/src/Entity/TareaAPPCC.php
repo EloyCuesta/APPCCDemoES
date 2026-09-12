@@ -22,6 +22,8 @@ use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
+/** Definición recurrente de control. Sus ejecuciones son TareaProgramada. */
+#[ORM\Index(name: 'idx_tarea_local_activa', columns: ['establecimiento_id', 'activa'])]
 #[ORM\Entity(repositoryClass: TareaAPPCCRepository::class)]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/tareas'),
@@ -100,15 +102,15 @@ class TareaAPPCC
     #[ApiProperty(writable: false)]
     private \DateTimeImmutable $createdAt;
 
-    /** @var Collection<int, RegistroAPPCC> */
-    #[ORM\OneToMany(mappedBy: 'tarea', targetEntity: RegistroAPPCC::class)]
+    /** @var Collection<int, TareaProgramada> */
+    #[ORM\OneToMany(mappedBy: 'tarea', targetEntity: TareaProgramada::class)]
     #[ApiProperty(readable: false, writable: false)]
-    private Collection $registros;
+    private Collection $programaciones;
 
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
-        $this->registros = new ArrayCollection();
+        $this->programaciones = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -319,25 +321,25 @@ class TareaAPPCC
         return $this;
     }
 
-    /** @return Collection<int, RegistroAPPCC> */
-    public function getRegistros(): Collection
+    /** @return Collection<int, TareaProgramada> */
+    public function getProgramaciones(): Collection
     {
-        return $this->registros;
+        return $this->programaciones;
     }
 
-    public function addRegistro(RegistroAPPCC $item): static
+    public function addProgramacion(TareaProgramada $item): static
     {
-        if (!$this->registros->contains($item)) {
-            $this->registros->add($item);
+        if (!$this->programaciones->contains($item)) {
+            $this->programaciones->add($item);
             $item->setTarea($this);
         }
 
         return $this;
     }
 
-    public function removeRegistro(RegistroAPPCC $item): static
+    public function removeProgramacion(TareaProgramada $item): static
     {
-        if ($this->registros->removeElement($item) && $item->getTarea() === $this) {
+        if ($this->programaciones->removeElement($item) && $item->getTarea() === $this) {
             $item->setTarea(null);
         }
 
@@ -372,7 +374,7 @@ class TareaAPPCC
                 ->addViolation();
         }
 
-        foreach ($this->registros as $registro) {
+        foreach ($this->programaciones as $registro) {
             $recordEstablecimiento = $registro->getEstablecimiento();
             if ($this->establecimiento !== null && $recordEstablecimiento !== null
                 && $this->establecimiento !== $recordEstablecimiento

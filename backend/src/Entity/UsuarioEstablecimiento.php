@@ -16,6 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints as Assert;
 
+#[ORM\Index(name: 'idx_membresia_local_activo_usuario', columns: ['establecimiento_id', 'activo', 'usuario_id'])]
 #[ORM\Entity(repositoryClass: UsuarioEstablecimientoRepository::class)]
 #[ORM\UniqueConstraint(name: 'uniq_usuario_establecimiento', fields: ['usuario', 'establecimiento'])]
 #[UniqueEntity(fields: ['usuario', 'establecimiento'], message: 'El usuario ya pertenece a este establecimiento.')]

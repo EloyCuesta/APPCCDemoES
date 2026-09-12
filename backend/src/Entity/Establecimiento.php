@@ -22,7 +22,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/establecimientos'),
-    new Post(uriTemplate: '/establecimientos'),
     new Get(uriTemplate: '/establecimientos/{id}'),
     new Patch(uriTemplate: '/establecimientos/{id}'),
 ])]

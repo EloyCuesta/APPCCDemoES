@@ -18,6 +18,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
+#[ORM\Index(name: 'idx_registro_local_fecha', columns: ['establecimiento_id', 'fecha_hora'])]
+#[ORM\Index(name: 'idx_registro_usuario_fecha', columns: ['usuario_id', 'fecha_hora'])]
 #[ORM\Entity(repositoryClass: RegistroAPPCCRepository::class)]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/registros'),
@@ -31,11 +33,11 @@ class RegistroAPPCC
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(inversedBy: 'registros')]
+    #[ORM\OneToOne(inversedBy: 'registro')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     #[ApiProperty(readableLink: false, writableLink: false)]
-    #[Assert\NotNull(message: 'El campo tarea es obligatorio.')]
-    private ?TareaAPPCC $tarea = null;
+    #[Assert\NotNull]
+    private ?TareaProgramada $tareaProgramada = null;
 
     #[ORM\ManyToOne(inversedBy: 'registros')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
@@ -45,7 +47,7 @@ class RegistroAPPCC
 
     #[ORM\ManyToOne(inversedBy: 'registros')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
-    #[ApiProperty(readableLink: false, writableLink: false)]
+    #[ApiProperty(readableLink: false, writable: false)]
     #[Assert\NotNull(message: 'El campo usuario es obligatorio.')]
     private ?Usuario $usuario = null;
 
@@ -78,10 +80,16 @@ class RegistroAPPCC
     #[ApiProperty(readable: false, writable: false)]
     private Collection $incidencias;
 
+    /** @var Collection<int, Evidencia> */
+    #[ORM\OneToMany(mappedBy: 'registro', targetEntity: Evidencia::class)]
+    #[ApiProperty(readable: false, writable: false)]
+    private Collection $evidencias;
+
     public function __construct()
     {
         $this->fechaHora = new \DateTimeImmutable();
         $this->createdAt = new \DateTimeImmutable();
+        $this->evidencias = new ArrayCollection();
         $this->incidencias = new ArrayCollection();
     }
 
@@ -90,25 +98,28 @@ class RegistroAPPCC
         return $this->id;
     }
 
+    /** Acceso de lectura a la definición; la relación operativa es tareaProgramada. */
+    #[ApiProperty(writable: false)]
     public function getTarea(): ?TareaAPPCC
     {
-        return $this->tarea;
+        return $this->tareaProgramada?->getTarea();
     }
 
-    public function setTarea(?TareaAPPCC $tarea): static
+    public function getTareaProgramada(): ?TareaProgramada { return $this->tareaProgramada; }
+
+    public function setTareaProgramada(?TareaProgramada $tareaProgramada): static
     {
-        if ($this->tarea === $tarea) {
-            return $this;
+        if ($this->tareaProgramada === $tareaProgramada) { return $this; }
+        if ($this->tareaProgramada !== null) {
+            throw new \App\Exception\BusinessRuleException('No se puede reemplazar la ejecución de un registro.');
         }
-
-        $previous = $this->tarea;
-        $this->tarea = $tarea;
-        $previous?->removeRegistro($this);
-        $tarea?->addRegistro($this);
-
+        if ($tareaProgramada?->getRegistro() !== null && $tareaProgramada->getRegistro() !== $this) {
+            throw new \App\Exception\BusinessRuleException('La ejecución ya tiene un registro.');
+        }
+        $this->tareaProgramada = $tareaProgramada;
+        $tareaProgramada?->setRegistro($this);
         return $this;
     }
-
     public function getEstablecimiento(): ?Establecimiento
     {
         return $this->establecimiento;
@@ -249,7 +260,7 @@ class RegistroAPPCC
     #[Assert\Callback]
     public function validate(ExecutionContextInterface $context, mixed $payload): void
     {
-        $relatedEstablecimiento = $this->tarea?->getEstablecimiento();
+        $relatedEstablecimiento = $this->tareaProgramada?->getEstablecimiento();
         if ($this->establecimiento !== null && $relatedEstablecimiento !== null
             && $this->establecimiento !== $relatedEstablecimiento
             && ($this->establecimiento->getId() === null || $this->establecimiento->getId() !== $relatedEstablecimiento->getId())
@@ -258,5 +269,20 @@ class RegistroAPPCC
                 ->atPath('tarea')
                 ->addViolation();
         }
+    }
+
+    /** @return Collection<int, Evidencia> */
+    public function getEvidencias(): Collection { return $this->evidencias; }
+
+    public function addEvidencia(Evidencia $item): static
+    {
+        if (!$this->evidencias->contains($item)) { $this->evidencias->add($item); $item->setRegistro($this); }
+        return $this;
+    }
+
+    public function removeEvidencia(Evidencia $item): static
+    {
+        if ($this->evidencias->removeElement($item) && $item->getRegistro() === $this) { $item->setRegistro(null); }
+        return $this;
     }
 }
