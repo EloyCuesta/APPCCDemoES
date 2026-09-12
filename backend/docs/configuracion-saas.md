@@ -142,11 +142,18 @@ Por tanto, actualmente no se comprueba que un `storageKey` corresponda a un arch
 
 `TareaProgramada` representa una ejecución concreta de esa definición.
 
-El servicio actual permite crear una ejecución explícitamente, impedir duplicados para la misma tarea y fecha, gestionar su estado y detectar ejecuciones vencidas.
+El servicio permite crear una ejecución explícitamente, impedir duplicados para la misma tarea y fecha, gestionar su estado y detectar ejecuciones vencidas. `GeneradorTareasProgramadasService` materializa automáticamente las frecuencias `DIARIA`, `SEMANAL` y `MENSUAL`.
 
-Todavía no existe un scheduler que genere automáticamente esas ejecuciones según la frecuencia configurada.
+El comando operativo es:
 
-Este proceso deberá implementarse posteriormente mediante un mecanismo como Symfony Scheduler, Messenger, cron o un proceso equivalente.
+```powershell
+php bin/console app:tareas:generar
+php bin/console app:tareas:generar --desde="2026-09-12" --hasta="2026-09-20"
+```
+
+`--desde` y `--hasta` limitan la ventana; si se omiten se utiliza ahora y ahora más siete días. Una fecha sin hora en `--hasta` incluye todo ese día. La generación es idempotente, usa la zona horaria configurada en `ConfiguracionEntidadFiscal`, ajusta días mensuales inexistentes al último día válido y deja `asignadoA` en `null`.
+
+Las tareas históricas sin `horaPrevista` no se alteran: el generador las informa como ignoradas hasta que se configuren. `POR_TURNO` y `POR_RECEPCION` quedan pendientes para fases posteriores; `BAJO_DEMANDA` permanece manual por diseño.
 
 ## Funcionalidad todavía pendiente
 
@@ -155,7 +162,6 @@ Aunque autenticación y aislamiento multiempresa ya están implementados, todav�
 * almacenamiento real de evidencias;
 * fotografías obligatorias de no conformidades;
 * firma de registros;
-* generación recurrente automática de `TareaProgramada`;
 * notificaciones por correo;
 * recordatorios de tareas;
 * resúmenes diarios;

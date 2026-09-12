@@ -134,7 +134,7 @@ final readonly class PlantillaAPPCCService
     /** @param array<string, mixed> $input @param array<string, PuntoControl> $puntos */
     private function crearTarea(array $input, PlanControl $plan, Establecimiento $local, array $puntos): TareaAPPCC
     {
-        $this->claves($input, ['nombre', 'frecuencia', 'puntoControl', 'descripcion', 'horaPrevista', 'limiteMinimo', 'limiteMaximo', 'unidad', 'instrucciones', 'configuracion', 'obligatoria']);
+        $this->claves($input, ['nombre', 'frecuencia', 'puntoControl', 'descripcion', 'horaPrevista', 'diaSemana', 'diaMes', 'plazoMinutos', 'limiteMinimo', 'limiteMaximo', 'unidad', 'instrucciones', 'configuracion', 'obligatoria']);
         $frecuencia = FrecuenciaTarea::tryFrom($this->texto($input, 'frecuencia')) ?? throw new BusinessRuleException('Frecuencia de tarea no válida.');
         $tarea = (new TareaAPPCC())->setEstablecimiento($local)->setPlanControl($plan)
             ->setNombre($this->texto($input, 'nombre'))->setFrecuencia($frecuencia)->setCreatedAt($this->clock->now());
@@ -153,6 +153,9 @@ final readonly class PlantillaAPPCCService
             }
             $tarea->setHoraPrevista($fecha);
         }
+        $tarea->setDiaSemana($this->enteroOpcional($input, 'diaSemana'))
+            ->setDiaMes($this->enteroOpcional($input, 'diaMes'))
+            ->setPlazoMinutos($this->enteroOpcional($input, 'plazoMinutos'));
         if (isset($input['configuracion'])) {
             if (!is_array($input['configuracion'])) {
                 throw new BusinessRuleException('La configuración de la tarea debe ser un objeto JSON.');
@@ -199,6 +202,16 @@ final readonly class PlantillaAPPCCService
         $value = $input[$campo] ?? null;
         if ($value !== null && !is_string($value)) {
             throw new BusinessRuleException('El campo '.$campo.' debe ser texto; los decimales se representan como strings.');
+        }
+
+        return $value;
+    }
+
+    private function enteroOpcional(array $input, string $campo): ?int
+    {
+        $value = $input[$campo] ?? null;
+        if ($value !== null && !is_int($value)) {
+            throw new BusinessRuleException('El campo '.$campo.' debe ser un entero o null.');
         }
 
         return $value;

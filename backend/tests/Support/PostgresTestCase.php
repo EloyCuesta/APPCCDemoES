@@ -36,7 +36,8 @@ abstract class PostgresTestCase extends KernelTestCase
         $this->otroLocal = $onboarding->crearOnboarding($this->fiscal('B87654321'), $this->establecimiento('Catering'), $this->otroUsuario);
         $plan = (new PlanControl())->setEstablecimiento($this->local)->setTipo(TipoPlanControl::TEMPERATURAS)->setNombre('Temperaturas');
         $this->tarea = (new TareaAPPCC())->setEstablecimiento($this->local)->setPlanControl($plan)->setNombre('Cámara')
-            ->setFrecuencia(FrecuenciaTarea::DIARIA)->setLimiteMinimo('0')->setLimiteMaximo('5')->setConfiguracion(['tipoRespuesta' => 'numero']);
+            ->setFrecuencia(FrecuenciaTarea::DIARIA)->setHoraPrevista(new \DateTimeImmutable('09:00:00'))
+            ->setLimiteMinimo('0')->setLimiteMaximo('5')->setConfiguracion(['tipoRespuesta' => 'numero']);
         $this->em->persist($plan);
         $this->em->persist($this->tarea);
         $this->em->flush();

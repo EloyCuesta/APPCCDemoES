@@ -32,9 +32,12 @@ La definición se obtiene mediante `getTarea()` de solo lectura.
 
 `TareaProgramadaService::programar()` crea explícitamente una ocurrencia idempotente
 por definición y fecha, con precisión de segundos. Un bloqueo sobre la definición y
-UNIQUE protegen la concurrencia. No hay cron, Messenger ni generación automática,
-tampoco para turnos, recepciones o demanda. El servicio permite gestionar estados y
-detectar vencidas. La agenda consulta ocurrencias pendientes/vencidas hasta la fecha.
+UNIQUE protegen la concurrencia. `GeneradorTareasProgramadasService` materializa de
+forma idempotente las frecuencias diaria, semanal y mensual mediante el comando
+`app:tareas:generar`. Las fechas se calculan en la zona horaria de la entidad fiscal,
+los límites mensuales inexistentes usan el último día válido y las ejecuciones se
+crean sin usuario asignado. El servicio permite gestionar estados y detectar vencidas.
+La agenda consulta ocurrencias pendientes/vencidas hasta la fecha.
 
 Registrar un control bloquea la ejecución, valida plazo/pertenencia y calcula la
 conformidad numérica/booleana. Registro, COMPLETADA, completadaAt, incidencia automática
@@ -49,13 +52,14 @@ impiden actualizar o borrar entradas. No se usan cascade remove ni orphanRemoval
 
 ## Migraciones
 
-El repositorio contiene actualmente cinco migraciones:
+El repositorio contiene actualmente seis migraciones:
 
 1. `Version20260911130812`: crea `EntidadFiscal`.
 2. `Version20260911132708`: crea el modelo APPCC inicial.
 3. `Version20260911151914`: añade las configuraciones de entidad fiscal y establecimiento.
 4. `Version20260912083224`: introduce `TareaProgramada`, `Evidencia` e `HistorialIncidencia`, migra `RegistroAPPCC` para referenciar una ejecución concreta y añade restricciones e índices.
 5. `Version20260912084920`: añade autenticación a `Usuario` mediante los campos `password` y `roles`.
+6. `Version20260912100000`: añade `diaSemana`, `diaMes` y `plazoMinutos` a `TareaAPPCC`, conservando valores nulos históricos.
 
 La cuarta migración realiza un backfill de los registros existentes. Por cada `RegistroAPPCC` anterior crea una `TareaProgramada` completada conservando la definición de tarea, establecimiento, usuario, fecha y resultado.
 
@@ -192,13 +196,20 @@ php bin/console doctrine:schema:validate
 php bin/phpunit
 ```
 
-Actualmente el repositorio no dispone de un workflow de GitHub Actions que ejecute automáticamente estas comprobaciones después de cada push. Por tanto, la existencia de las pruebas en el repositorio no equivale todavía a disponer de un check de CI asociado a cada commit.
+El workflow `.github/workflows/backend-ci.yml` ejecuta estas comprobaciones en GitHub Actions para cambios del backend.
 
 ## Funcionalidad pendiente
 
-`TareaProgramadaService` permite crear ejecuciones concretas y detectar ejecuciones vencidas, pero no existe todavía generación recurrente automática basada en la frecuencia de `TareaAPPCC`.
+`GeneradorTareasProgramadasService` genera ejecuciones recurrentes diarias, semanales y mensuales dentro de una ventana limitada. Puede ejecutarse manualmente o desde cron:
 
-No hay actualmente cron, Symfony Messenger ni proceso planificado que materialice automáticamente las tareas diarias, semanales, por turno o bajo demanda.
+```powershell
+php bin/console app:tareas:generar
+php bin/console app:tareas:generar --desde="2026-09-12" --hasta="2026-09-20"
+```
+
+Sin opciones utiliza ahora y los siete días siguientes. Una fecha `--hasta` sin hora incluye el día completo. Las tareas antiguas sin `horaPrevista` se conservan, pero se ignoran y se diagnostican hasta configurarlas.
+
+No hay todavía un proceso persistente, Messenger ni scheduler integrado. `POR_TURNO` y `POR_RECEPCION` quedan pendientes por requerir, respectivamente, un modelo explícito de turnos y un flujo event-driven. `BAJO_DEMANDA` es manual por diseño.
 
 `Evidencia` representa actualmente los metadatos de una evidencia:
 
@@ -217,10 +228,8 @@ Por ello, las opciones `requiereFotoNoConforme` y `requiereFirmaRegistro` todav�
 
 También permanecen pendientes:
 
-* generación automática de tareas programadas;
 * almacenamiento y descarga real de evidencias;
 * flujo de firma de registros;
 * notificaciones;
 * resumen diario;
 * retención automática de registros;
-* GitHub Actions / CI.

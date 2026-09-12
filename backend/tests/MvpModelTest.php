@@ -35,7 +35,7 @@ final class MvpModelTest extends PostgresTestCase
     public function testPlantillaCreaDefinicionesSinProgramarOcurrencias(): void
     {
         $plantilla = (new PlantillaAPPCC())->setNombre('Limpieza')->setTipoActividad(TipoActividad::OBRADOR)->setConfiguracion([
-            'planes' => [['nombre' => 'Limpieza', 'tipo' => 'limpieza', 'tareas' => [['nombre' => 'Mesa', 'frecuencia' => 'diaria', 'configuracion' => ['tipoRespuesta' => 'boolean']]]]],
+            'planes' => [['nombre' => 'Limpieza', 'tipo' => 'limpieza', 'tareas' => [['nombre' => 'Mesa', 'frecuencia' => 'diaria', 'horaPrevista' => '09:00:00', 'configuracion' => ['tipoRespuesta' => 'boolean']]]]],
         ]);
         $this->em->persist($plantilla); $this->em->flush();
         self::getContainer()->get(PlantillaAPPCCService::class)->aplicar($plantilla, $this->local);

@@ -71,6 +71,18 @@ class TareaAPPCC
     #[Context([DateTimeNormalizer::FORMAT_KEY => 'H:i:s'])]
     private ?\DateTimeImmutable $horaPrevista = null;
 
+    #[ORM\Column(nullable: true)]
+    #[Assert\Range(min: 1, max: 7, notInRangeMessage: 'El día de la semana debe estar entre 1 y 7.')]
+    private ?int $diaSemana = null;
+
+    #[ORM\Column(nullable: true)]
+    #[Assert\Range(min: 1, max: 31, notInRangeMessage: 'El día del mes debe estar entre 1 y 31.')]
+    private ?int $diaMes = null;
+
+    #[ORM\Column(nullable: true)]
+    #[Assert\Positive(message: 'El plazo en minutos debe ser mayor que cero.')]
+    private ?int $plazoMinutos = null;
+
     #[ORM\Column(type: Types::DECIMAL, precision: 12, scale: 3, nullable: true)]
     #[Assert\NotBlank(allowNull: true, message: 'El límite mínimo debe ser un decimal o null.')]
     #[Assert\Regex(pattern: '/^-?\\d{1,9}(?:\\.\\d{1,3})?$/D', message: 'El campo límite mínimo debe ser un decimal con hasta 9 cifras enteras y 3 decimales.')]
@@ -223,6 +235,42 @@ class TareaAPPCC
         return $this;
     }
 
+    public function getDiaSemana(): ?int
+    {
+        return $this->diaSemana;
+    }
+
+    public function setDiaSemana(?int $diaSemana): static
+    {
+        $this->diaSemana = $diaSemana;
+
+        return $this;
+    }
+
+    public function getDiaMes(): ?int
+    {
+        return $this->diaMes;
+    }
+
+    public function setDiaMes(?int $diaMes): static
+    {
+        $this->diaMes = $diaMes;
+
+        return $this;
+    }
+
+    public function getPlazoMinutos(): ?int
+    {
+        return $this->plazoMinutos;
+    }
+
+    public function setPlazoMinutos(?int $plazoMinutos): static
+    {
+        $this->plazoMinutos = $plazoMinutos;
+
+        return $this;
+    }
+
     public function getLimiteMinimo(): ?string
     {
         return $this->limiteMinimo;
@@ -371,6 +419,33 @@ class TareaAPPCC
         if (is_numeric($this->limiteMinimo) && is_numeric($this->limiteMaximo) && $this->limiteMinimo > $this->limiteMaximo) {
             $context->buildViolation('El límite máximo no puede ser menor que el límite mínimo.')
                 ->atPath('limiteMaximo')
+                ->addViolation();
+        }
+
+        if ($this->frecuencia === FrecuenciaTarea::SEMANAL && $this->diaSemana === null) {
+            $context->buildViolation('El día de la semana es obligatorio para una tarea semanal.')
+                ->atPath('diaSemana')
+                ->addViolation();
+        }
+        if ($this->frecuencia !== FrecuenciaTarea::SEMANAL && $this->diaSemana !== null) {
+            $context->buildViolation('El día de la semana solo se permite para tareas semanales.')
+                ->atPath('diaSemana')
+                ->addViolation();
+        }
+        if ($this->frecuencia === FrecuenciaTarea::MENSUAL && $this->diaMes === null) {
+            $context->buildViolation('El día del mes es obligatorio para una tarea mensual.')
+                ->atPath('diaMes')
+                ->addViolation();
+        }
+        if ($this->frecuencia !== FrecuenciaTarea::MENSUAL && $this->diaMes !== null) {
+            $context->buildViolation('El día del mes solo se permite para tareas mensuales.')
+                ->atPath('diaMes')
+                ->addViolation();
+        }
+        if (in_array($this->frecuencia, [FrecuenciaTarea::DIARIA, FrecuenciaTarea::SEMANAL, FrecuenciaTarea::MENSUAL], true)
+            && $this->horaPrevista === null && $this->id === null) {
+            $context->buildViolation('La hora prevista es obligatoria para las tareas recurrentes automáticas.')
+                ->atPath('horaPrevista')
                 ->addViolation();
         }
 

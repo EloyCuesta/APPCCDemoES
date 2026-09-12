@@ -21,8 +21,7 @@ final readonly class CalendarioAPPCC
     /** @return array{\DateTimeImmutable, \DateTimeImmutable}|null Intervalo [inicio, fin) en la zona usada por Doctrine. */
     public function periodo(TareaAPPCC $tarea, Establecimiento $local, ?\DateTimeImmutable $fecha = null): ?array
     {
-        $config = $local->getEntidadFiscal() === null ? null : $this->configuraciones->findOneBy(['entidadFiscal' => $local->getEntidadFiscal()]);
-        $fecha = ($fecha ?? $this->clock->now())->setTimezone(new \DateTimeZone($config?->getZonaHoraria() ?? 'Europe/Madrid'));
+        $fecha = ($fecha ?? $this->clock->now())->setTimezone($this->zonaHoraria($local));
         $inicio = match ($tarea->getFrecuencia()) {
             FrecuenciaTarea::DIARIA => $fecha->setTime(0, 0),
             FrecuenciaTarea::SEMANAL => $fecha->modify('monday this week')->setTime(0, 0),
@@ -39,6 +38,49 @@ final readonly class CalendarioAPPCC
         });
 
         return [$this->paraPersistir($inicio), $this->paraPersistir($fin)];
+    }
+
+    public function zonaHoraria(Establecimiento $local): \DateTimeZone
+    {
+        $config = $local->getEntidadFiscal() === null ? null : $this->configuraciones->findOneBy(['entidadFiscal' => $local->getEntidadFiscal()]);
+
+        return new \DateTimeZone($config?->getZonaHoraria() ?? 'Europe/Madrid');
+    }
+
+    /** @return list<\DateTimeImmutable> Fechas locales dentro del intervalo inclusivo. */
+    public function ocurrencias(TareaAPPCC $tarea, Establecimiento $local, \DateTimeImmutable $desde, \DateTimeImmutable $hasta): array
+    {
+        $hora = $tarea->getHoraPrevista();
+        $frecuencia = $tarea->getFrecuencia();
+        if ($hora === null || $frecuencia === null || !in_array($frecuencia, [FrecuenciaTarea::DIARIA, FrecuenciaTarea::SEMANAL, FrecuenciaTarea::MENSUAL], true)) {
+            return [];
+        }
+
+        $zona = $this->zonaHoraria($local);
+        $inicio = $desde->setTimezone($zona);
+        $fin = $hasta->setTimezone($zona);
+        $dia = $inicio->setTime(0, 0, 0);
+        $ultimoDia = $fin->setTime(0, 0, 0);
+        $ocurrencias = [];
+        while ($dia <= $ultimoDia) {
+            $cumple = match ($frecuencia) {
+                FrecuenciaTarea::DIARIA => true,
+                FrecuenciaTarea::SEMANAL => (int) $dia->format('N') === $tarea->getDiaSemana(),
+                FrecuenciaTarea::MENSUAL => (int) $dia->format('j') === min($tarea->getDiaMes() ?? 0, (int) $dia->format('t')),
+                default => false,
+            };
+            if ($cumple) {
+                $ocurrencia = $dia->setTime((int) $hora->format('H'), (int) $hora->format('i'), (int) $hora->format('s'));
+                if ($ocurrencia->getTimestamp() >= $desde->getTimestamp()
+                    && $ocurrencia->getTimestamp() <= $hasta->getTimestamp()
+                    && $ocurrencia->getTimestamp() >= $tarea->getCreatedAt()->getTimestamp()) {
+                    $ocurrencias[] = $ocurrencia;
+                }
+            }
+            $dia = $dia->modify('+1 day');
+        }
+
+        return $ocurrencias;
     }
 
     public function validarFecha(TareaAPPCC $tarea, Establecimiento $local, ConfiguracionEstablecimiento $config, \DateTimeImmutable $fecha): void
