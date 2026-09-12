@@ -1,6 +1,8 @@
 api_platform:
     title: Hello API Platform
     version: 1.0.0
+    exception_to_status:
+        App\Exception\BusinessRuleException: 422
     defaults:
         stateless: true
         cache_headers:
