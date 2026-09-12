@@ -228,7 +228,7 @@ final class SecurityTest extends PostgresTestCase
         foreach ([[$ownLocal, $ownUser, $ownTask], [$this->em->find(\App\Entity\Establecimiento::class, $this->otroLocal->getId()), $this->em->find(Usuario::class, $this->otroUsuario->getId()), null]] as $index => [$local, $user, $task]) {
             if ($task === null) {
                 $plan = (new PlanControl())->setEstablecimiento($local)->setTipo(TipoPlanControl::TEMPERATURAS)->setNombre('Otro plan');
-                $task = (new \App\Entity\TareaAPPCC())->setEstablecimiento($local)->setPlanControl($plan)->setNombre('Otra tarea')->setFrecuencia(\App\Enum\FrecuenciaTarea::DIARIA)->setLimiteMaximo('5');
+                $task = (new \App\Entity\TareaAPPCC())->setEstablecimiento($local)->setPlanControl($plan)->setNombre('Otra tarea')->setFrecuencia(\App\Enum\FrecuenciaTarea::DIARIA)->setHoraPrevista(new \DateTimeImmutable('09:00:00'))->setLimiteMaximo('5');
                 $this->em->persist($plan); $this->em->persist($task); $this->em->flush();
             }
             $this->local = $local; $this->usuario = $user; $this->tarea = $task;
@@ -260,6 +260,20 @@ final class SecurityTest extends PostgresTestCase
         }
         $response = $this->api('POST', '/api/evidencias', ['registro' => '/api/registros/'.$uris[1]['registros'], 'tipo' => 'foto', 'storageKey' => 'otro', 'nombreOriginal' => 'otro.jpg', 'mimeType' => 'image/jpeg', 'tamanoBytes' => 10]);
         self::assertContains($response->getStatusCode(), [400, 404]);
+    }
+
+    public function testPatchCalendarioValidaYReconciliaLaAgenda(): void
+    {
+        $historica = $this->ownProgrammed();
+        $futura = $this->programar('+1 day');
+        $uri = '/api/tareas/'.$this->tarea->getId();
+        self::assertSame(400, $this->api('PATCH', $uri, ['horaPrevista' => '25:00:00'])->getStatusCode());
+        self::assertSame(422, $this->api('PATCH', $uri, ['horaPrevista' => null])->getStatusCode());
+        self::assertSame(2, (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM tarea_programada'));
+        $r = $this->api('PATCH', $uri, ['horaPrevista' => '10:00:00']);
+        self::assertSame(200, $r->getStatusCode(), $r->getContent());
+        self::assertSame('10:00:00', $this->json($r)['horaPrevista']);
+        self::assertSame([$historica->getId()], $this->em->getConnection()->fetchFirstColumn('SELECT id FROM tarea_programada'));
     }
 
     public function testCorsPermiteCabecerasDelFrontend(): void

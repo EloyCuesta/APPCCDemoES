@@ -151,7 +151,9 @@ php bin/console app:tareas:generar
 php bin/console app:tareas:generar --desde="2026-09-12" --hasta="2026-09-20"
 ```
 
-`--desde` y `--hasta` limitan la ventana; si se omiten se utiliza ahora y ahora más siete días. Una fecha sin hora en `--hasta` incluye todo ese día. La generación es idempotente, usa la zona horaria configurada en `ConfiguracionEntidadFiscal`, ajusta días mensuales inexistentes al último día válido y deja `asignadoA` en `null`.
+`--desde` y `--hasta` limitan la ventana; si se omiten ambos se utiliza ahora y ahora más siete días. Fechas estrictas `YYYY-MM-DD` incluyen días locales completos en cada zona fiscal. Con un único límite, el otro se obtiene sumando siete días a `--desde` o restándolos a `--hasta`. También se aceptan instantes ISO con segundos y zona explícita, sin mezclarlos con fechas sin hora. La generación es idempotente, ajusta días mensuales inexistentes al último día válido y deja `asignadoA` en `null`.
+
+Los cambios de frecuencia, hora, día o plazo retiran transaccionalmente las futuras pendientes sin registro de esa tarea. Las completadas, históricas y cualquier ejecución con registro se conservan. Ejecutar de nuevo el generador para reconstruir el horizonte deseado. Los bloqueos y la versión de la tarea protegen generación y edición concurrentes. Véanse [las reglas de reconciliación](modelo-mvp.md) y [el informe técnico](revision-generacion-recurrente.md).
 
 Las tareas históricas sin `horaPrevista` no se alteran: el generador las informa como ignoradas hasta que se configuren. `POR_TURNO` y `POR_RECEPCION` quedan pendientes para fases posteriores; `BAJO_DEMANDA` permanece manual por diseño.
 
@@ -166,6 +168,7 @@ Aunque autenticación y aislamiento multiempresa ya están implementados, todav�
 * recordatorios de tareas;
 * resúmenes diarios;
 * políticas automáticas de retención;
-* pipeline CI con GitHub Actions.
+
+El pipeline de validación backend con PostgreSQL ya está implementado en `.github/workflows/backend-ci.yml`.
 
 Estas funcionalidades deben considerarse pendientes aunque sus campos de configuración o modelos de datos ya existan.

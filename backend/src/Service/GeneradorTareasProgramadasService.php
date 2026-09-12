@@ -15,12 +15,14 @@ final readonly class GeneradorTareasProgramadasService
         private TareaAPPCCRepository $tareas,
         private TareaProgramadaService $programadas,
         private CalendarioAPPCC $calendario,
+        private \App\Service\Support\TransaccionAPPCC $transaccion,
+        private \App\Service\Support\BloqueoCalendarioAPPCC $bloqueo,
     ) {
     }
 
     public function generar(\DateTimeImmutable $desde, \DateTimeImmutable $hasta, bool $fechasCalendario = false): \App\Service\ResultadoGeneracion
     {
-        if ($hasta->getTimestamp() < $desde->getTimestamp()) {
+        if ($hasta < $desde) {
             throw new \InvalidArgumentException('El intervalo de generación no es válido.');
         }
 
@@ -33,40 +35,47 @@ final readonly class GeneradorTareasProgramadasService
 
         foreach ($this->tareas->findActiveForGeneration() as $tarea) {
             ++$analizadas;
-            $frecuencia = $tarea->getFrecuencia();
-            $local = $tarea->getEstablecimiento();
-            if ($local === null || $frecuencia === null) {
-                ++$ignoradas;
-                $detalle[] = sprintf('Tarea %s: falta el establecimiento o la frecuencia.', $tarea->getId() ?? 'nueva');
-                continue;
-            }
-            $motivo = $this->motivoNoProgramable($tarea, $frecuencia);
-            if ($motivo !== null) {
-                ++$ignoradas;
-                $detalle[] = sprintf('Tarea %d (%s): %s', $tarea->getId(), $tarea->getNombre(), $motivo);
-                continue;
-            }
-
-            $ventanaDesde = $desde;
-            $ventanaHasta = $hasta;
-            if ($fechasCalendario) {
-                $zona = $this->calendario->zonaHoraria($local);
-                $ventanaDesde = new \DateTimeImmutable($desde->format('Y-m-d').' 00:00:00', $zona);
-                $ventanaHasta = new \DateTimeImmutable($hasta->format('Y-m-d').' 23:59:59', $zona);
-            }
-            foreach ($this->calendario->ocurrencias($tarea, $local, $ventanaDesde, $ventanaHasta) as $ocurrencia) {
-                ++$calculadas;
-                $limite = $tarea->getPlazoMinutos() === null
-                    ? null
-                    : $ocurrencia->modify(sprintf('+%d minutes', $tarea->getPlazoMinutos()));
-                $antes = $tarea->getProgramaciones()->filter(static fn ($programada): bool => $programada->getFechaProgramada()?->getTimestamp() === $ocurrencia->getTimestamp())->first();
-                $this->programadas->programar($tarea, $local, $ocurrencia, null, $limite);
-                if ($antes === false) {
-                    ++$creadas;
-                } else {
-                    ++$existentes;
+            $this->transaccion->ejecutar(function () use ($tarea, $desde, $hasta, $fechasCalendario, &$calculadas, &$creadas, &$existentes, &$ignoradas, &$detalle): void {
+                $this->bloqueo->bloquear($tarea, true);
+                if (!$this->bloqueo->contextoActivo($tarea) || !in_array($tarea->getFrecuencia(), [FrecuenciaTarea::DIARIA, FrecuenciaTarea::SEMANAL, FrecuenciaTarea::MENSUAL], true)) {
+                    ++$ignoradas;
+                    $detalle[] = sprintf('Tarea %d: el contexto o la frecuencia ya no permite generación automática.', $tarea->getId());
+                    return;
                 }
-            }
+                $frecuencia = $tarea->getFrecuencia();
+                $local = $tarea->getEstablecimiento();
+                if ($local === null || $frecuencia === null) {
+                    ++$ignoradas;
+                    $detalle[] = sprintf('Tarea %s: falta el establecimiento o la frecuencia.', $tarea->getId() ?? 'nueva');
+                    return;
+                }
+                $motivo = $this->motivoNoProgramable($tarea, $frecuencia);
+                if ($motivo !== null) {
+                    ++$ignoradas;
+                    $detalle[] = sprintf('Tarea %d (%s): %s', $tarea->getId(), $tarea->getNombre(), $motivo);
+                    return;
+                }
+
+                $ventanaDesde = $desde;
+                $ventanaHasta = $hasta;
+                if ($fechasCalendario) {
+                    $zona = $this->calendario->zonaHoraria($local);
+                    $ventanaDesde = new \DateTimeImmutable($desde->format('Y-m-d').' 00:00:00', $zona);
+                    $ventanaHasta = new \DateTimeImmutable($hasta->format('Y-m-d').' 23:59:59', $zona);
+                }
+                foreach ($this->calendario->ocurrencias($tarea, $local, $ventanaDesde, $ventanaHasta) as $ocurrencia) {
+                    ++$calculadas;
+                    $limite = $tarea->getPlazoMinutos() === null
+                        ? null
+                        : $ocurrencia->setTimezone(new \DateTimeZone('UTC'))->add(new \DateInterval(sprintf('PT%dM', $tarea->getPlazoMinutos())));
+                    [, $creada] = $this->programadas->programarConResultado($tarea, $local, $ocurrencia, null, $limite);
+                    if ($creada) {
+                        ++$creadas;
+                    } else {
+                        ++$existentes;
+                    }
+                }
+            });
         }
 
         return new ResultadoGeneracion($analizadas, $calculadas, $creadas, $existentes, $ignoradas, $detalle);

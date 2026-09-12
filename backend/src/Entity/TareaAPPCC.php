@@ -38,6 +38,16 @@ class TareaAPPCC
     #[ORM\Column]
     private ?int $id = null;
 
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER, options: ['default' => 1])]
+    #[ApiProperty(writable: false)]
+    private int $version = 1;
+
+    public function getVersion(): int
+    {
+        return $this->version;
+    }
+
     #[ORM\ManyToOne(inversedBy: 'tareas')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     #[ApiProperty(readableLink: false, writableLink: false)]
@@ -68,7 +78,7 @@ class TareaAPPCC
     private ?FrecuenciaTarea $frecuencia = null;
 
     #[ORM\Column(type: Types::TIME_IMMUTABLE, nullable: true)]
-    #[Context([DateTimeNormalizer::FORMAT_KEY => 'H:i:s'])]
+    #[Context([DateTimeNormalizer::FORMAT_KEY => 'H:i:s', 'appcc_hora' => true])]
     private ?\DateTimeImmutable $horaPrevista = null;
 
     #[ORM\Column(nullable: true)]
@@ -81,6 +91,7 @@ class TareaAPPCC
 
     #[ORM\Column(nullable: true)]
     #[Assert\Positive(message: 'El plazo en minutos debe ser mayor que cero.')]
+    #[Assert\LessThanOrEqual(2147483647)]
     private ?int $plazoMinutos = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 12, scale: 3, nullable: true)]
@@ -397,6 +408,9 @@ class TareaAPPCC
     #[Assert\Callback]
     public function validate(ExecutionContextInterface $context, mixed $payload): void
     {
+        if ($this->horaPrevista !== null && $this->horaPrevista->format('u') !== '000000') {
+            $context->buildViolation('La hora prevista debe tener precisión de segundos.')->atPath('horaPrevista')->addViolation();
+        }
         $relatedEstablecimiento = $this->planControl?->getEstablecimiento();
         if ($this->establecimiento !== null && $relatedEstablecimiento !== null
             && $this->establecimiento !== $relatedEstablecimiento
@@ -443,7 +457,7 @@ class TareaAPPCC
                 ->addViolation();
         }
         if (in_array($this->frecuencia, [FrecuenciaTarea::DIARIA, FrecuenciaTarea::SEMANAL, FrecuenciaTarea::MENSUAL], true)
-            && $this->horaPrevista === null && $this->id === null) {
+            && $this->horaPrevista === null) {
             $context->buildViolation('La hora prevista es obligatoria para las tareas recurrentes automáticas.')
                 ->atPath('horaPrevista')
                 ->addViolation();

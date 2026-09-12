@@ -40,6 +40,8 @@ class TareaAPPCCRepository extends ServiceEntityRepository
             ->andWhere('p.activo = true')
             ->andWhere('e.activo = true')
             ->andWhere('f.activo = true')
+            ->andWhere('p.establecimiento = e.id')
+            ->andWhere('pc.id IS NULL OR pc.establecimiento = e.id')
             ->andWhere('pc.id IS NULL OR pc.activo = true')
             ->andWhere('t.frecuencia IN (:frecuencias)')
             ->setParameter('frecuencias', [

@@ -71,9 +71,9 @@ final readonly class CalendarioAPPCC
             };
             if ($cumple) {
                 $ocurrencia = $dia->setTime((int) $hora->format('H'), (int) $hora->format('i'), (int) $hora->format('s'));
-                if ($ocurrencia->getTimestamp() >= $desde->getTimestamp()
-                    && $ocurrencia->getTimestamp() <= $hasta->getTimestamp()
-                    && $ocurrencia->getTimestamp() >= $tarea->getCreatedAt()->getTimestamp()) {
+                if ($ocurrencia >= $desde
+                    && $ocurrencia <= $hasta
+                    && $ocurrencia >= $tarea->getCreatedAt()) {
                     $ocurrencias[] = $ocurrencia;
                 }
             }

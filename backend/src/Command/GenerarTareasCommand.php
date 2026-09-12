@@ -63,38 +63,45 @@ final class GenerarTareasCommand extends Command
     /** @return array{\DateTimeImmutable, \DateTimeImmutable, bool} */
     private function intervalo(InputInterface $input): array
     {
-        $ahora = $this->clock->now();
-        $desde = $this->parsear($input->getOption('desde'), $ahora, false);
-        $hasta = $this->parsear($input->getOption('hasta'), $ahora->modify('+7 days'), true);
-        if ($hasta->getTimestamp() < $desde->getTimestamp()) {
-            throw new \InvalidArgumentException('La opción --hasta debe ser posterior o igual a --desde.');
-        }
-
         $desdeTexto = $input->getOption('desde');
         $hastaTexto = $input->getOption('hasta');
-        $fechasCalendario = is_string($desdeTexto) && is_string($hastaTexto)
-            && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $desdeTexto) === 1
-            && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $hastaTexto) === 1;
+        $desde = $desdeTexto === null ? null : $this->parsear($desdeTexto);
+        $hasta = $hastaTexto === null ? null : $this->parsear($hastaTexto);
+        $esDia = static fn (?string $texto): bool => $texto !== null && strlen($texto) === 10;
+        if ($desde !== null && $hasta !== null && $esDia($desdeTexto) !== $esDia($hastaTexto)) {
+            throw new \InvalidArgumentException('Usa dos fechas YYYY-MM-DD o dos instantes ISO con zona horaria; no mezcles formatos.');
+        }
+        $fechasCalendario = $esDia($desdeTexto) || $esDia($hastaTexto);
+        // Un único límite ancla también el valor por defecto del otro extremo.
+        $desde ??= $hasta?->modify('-7 days') ?? $this->clock->now();
+        $hasta ??= $desde->modify('+7 days');
+        if ($hasta < $desde) {
+            throw new \InvalidArgumentException('La opción --hasta debe ser posterior o igual a --desde.');
+        }
 
         return [$desde, $hasta, $fechasCalendario];
     }
 
-    private function parsear(?string $valor, \DateTimeImmutable $defecto, bool $finDelDia): \DateTimeImmutable
+    private function parsear(string $valor): \DateTimeImmutable
     {
-        if ($valor === null) {
-            return $defecto;
-        }
+        $formato = null;
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $valor) === 1) {
-            try {
-                return new \DateTimeImmutable($valor.' '.($finDelDia ? '23:59:59' : '00:00:00'), new \DateTimeZone('UTC'));
-            } catch (\Exception) {
-                throw new \InvalidArgumentException(sprintf('La fecha "%s" no es válida.', $valor));
+            $formato = 'Y-m-d';
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/D', $valor, $partes) === 1) {
+            if (str_starts_with(ltrim($partes[1], '+-'), '14:') && substr($partes[1], -2) !== '00') {
+                throw new \InvalidArgumentException('El desplazamiento horario no puede superar 14:00.');
+            }
+            $valor = str_ends_with($valor, 'Z') ? substr($valor, 0, -1).'+00:00' : $valor;
+            $formato = 'Y-m-d\TH:i:sP';
+        }
+        if ($formato !== null) {
+            $fecha = \DateTimeImmutable::createFromFormat('!'.$formato, $valor, new \DateTimeZone('UTC'));
+            $errores = \DateTimeImmutable::getLastErrors();
+            if ($fecha !== false && $fecha->format($formato) === $valor && (int) $fecha->format('Y') > 0
+                && ($errores === false || ($errores['warning_count'] === 0 && $errores['error_count'] === 0))) {
+                return $fecha;
             }
         }
-        try {
-            return new \DateTimeImmutable($valor);
-        } catch (\Exception) {
-            throw new \InvalidArgumentException(sprintf('La fecha "%s" no es válida.', $valor));
-        }
+        throw new \InvalidArgumentException(sprintf('La fecha "%s" no es válida. Usa YYYY-MM-DD o YYYY-MM-DDTHH:MM:SSZ/±HH:MM.', $valor));
     }
 }

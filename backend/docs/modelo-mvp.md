@@ -1,9 +1,9 @@
 # Modelo MVP APPCC
 
-Estado validado de fase 1, sobre `main` desde `3fee215`. Backend PHP 8.3,
+Modelo revisado sobre `main` desde `cee933a`, incluida generación recurrente. Backend PHP 8.3,
 Symfony 7.4, API Platform 4.3, Doctrine ORM 3.7/DBAL 4.4 y PostgreSQL **18.3**.
-Se mantienen identificadores enteros y las tres migraciones existentes, que estaban
-aplicadas en desarrollo. Las tablas operativas consultadas estaban vacías.
+Se mantienen identificadores enteros y las migraciones anteriores; las ampliaciones
+se incorporan mediante migraciones incrementales.
 
 ## Entidades y relaciones
 
@@ -52,7 +52,7 @@ impiden actualizar o borrar entradas. No se usan cascade remove ni orphanRemoval
 
 ## Migraciones
 
-El repositorio contiene actualmente seis migraciones:
+El repositorio contiene actualmente siete migraciones:
 
 1. `Version20260911130812`: crea `EntidadFiscal`.
 2. `Version20260911132708`: crea el modelo APPCC inicial.
@@ -60,6 +60,9 @@ El repositorio contiene actualmente seis migraciones:
 4. `Version20260912083224`: introduce `TareaProgramada`, `Evidencia` e `HistorialIncidencia`, migra `RegistroAPPCC` para referenciar una ejecución concreta y añade restricciones e índices.
 5. `Version20260912084920`: añade autenticación a `Usuario` mediante los campos `password` y `roles`.
 6. `Version20260912100000`: añade `diaSemana`, `diaMes` y `plazoMinutos` a `TareaAPPCC`, conservando valores nulos históricos.
+7. `Version20260912110000`: añade versión optimista y restricciones de calendario en PostgreSQL, sin reescribir la migración anterior ni completar datos heredados arbitrariamente.
+
+La séptima migración crea CHECK de rangos, coherencia de frecuencia/días, plazo positivo y hora obligatoria/válida. Usa `NOT VALID` para conservar posibles definiciones heredadas inválidas, y valida cada restricción cuando todos los datos existentes la cumplen. Una restricción aún no validada protege igualmente las nuevas inserciones y actualizaciones. Tras configurar las tareas heredadas debe ejecutarse `ALTER TABLE tarea_appcc VALIDATE CONSTRAINT nombre_del_check`. El esquema Doctrine no sustituye esta comprobación de datos: consultar `pg_constraint.convalidated`.
 
 La cuarta migración realiza un backfill de los registros existentes. Por cada `RegistroAPPCC` anterior crea una `TareaProgramada` completada conservando la definición de tarea, establecimiento, usuario, fecha y resultado.
 
@@ -207,7 +210,15 @@ php bin/console app:tareas:generar
 php bin/console app:tareas:generar --desde="2026-09-12" --hasta="2026-09-20"
 ```
 
-Sin opciones utiliza ahora y los siete días siguientes. Una fecha `--hasta` sin hora incluye el día completo. Las tareas antiguas sin `horaPrevista` se conservan, pero se ignoran y se diagnostican hasta configurarlas.
+Sin opciones utiliza ahora y los siete días siguientes. Las fechas `YYYY-MM-DD` representan días completos inclusivos en la zona fiscal de cada tarea. Con solo `--desde`, el final es ese día más siete días; con solo `--hasta`, el inicio es ese día menos siete días (ocho fechas inclusivas). Los instantes exigen `YYYY-MM-DDTHH:MM:SSZ` o desplazamiento `±HH:MM`, con extremos inclusivos. No se permite mezclar fechas sin hora con instantes. Fechas inexistentes, horas normalizadas y expresiones relativas se rechazan. Las tareas antiguas sin calendario completo se conservan, pero se ignoran y diagnostican hasta configurarlas.
+
+Al modificar frecuencia, hora, día semanal, día mensual o plazo mediante `TareaAPPCCService`/PATCH, se retiran solamente ejecuciones de esa tarea y establecimiento con fecha estrictamente posterior a ahora, estado PENDIENTE y sin RegistroAPPCC. La retirada y el cambio se confirman en una transacción. No se modifican completadas, históricas, omitidas, vencidas ni ejecuciones con registro. La siguiente generación reconstruye la ventana solicitada con el nuevo calendario; debe incluirse el horizonte futuro deseado. Las nuevas ejecuciones no heredan asignaciones de las retiradas. Esta regla incluye pendientes futuras creadas manualmente, pues no hay distinción de origen.
+
+Generación y edición bloquean primero la fila de la tarea. El generador recarga su configuración después del bloqueo y protege/revalida los padres activos y la zona fiscal. La reconciliación bloquea las ejecuciones candidatas y vuelve a consultar registros después de esperar. La versión optimista rechaza ediciones concurrentes obsoletas (HTTP 409); UNIQUE(tarea, fecha) sigue siendo la última defensa. Cada tarea generada es una transacción; ante un fallo posterior pueden haber quedado confirmadas tareas anteriores y se puede repetir la ventana con seguridad.
+
+En cambios estacionales se genera una sola ocurrencia: una hora inexistente avanza por el salto horario y una repetida usa la primera aparición (PHP 8.3; pruebas para Europe/Madrid). El plazo suma minutos transcurridos en UTC. No se generan instantes anteriores a `createdAt`.
+
+La revisión, las pruebas y los límites operativos se describen en [revision-generacion-recurrente.md](revision-generacion-recurrente.md).
 
 No hay todavía un proceso persistente, Messenger ni scheduler integrado. `POR_TURNO` y `POR_RECEPCION` quedan pendientes por requerir, respectivamente, un modelo explícito de turnos y un flujo event-driven. `BAJO_DEMANDA` es manual por diseño.
 

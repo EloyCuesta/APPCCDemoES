@@ -14,6 +14,7 @@ final class GeneradorTareasProgramadasTest extends PostgresTestCase
     public function testGeneraUnaOcurrenciaDiariaPorDia(): void
     {
         $this->tarea->setCreatedAt(new \DateTimeImmutable('2026-09-12T00:00:00+00:00'));
+        $this->em->flush();
         $resultado = $this->generar('2026-09-13T00:00:00+00:00', '2026-09-15T23:59:59+00:00');
 
         self::assertSame(3, $resultado->ocurrenciasCalculadas);
@@ -80,11 +81,7 @@ final class GeneradorTareasProgramadasTest extends PostgresTestCase
             $this->em->flush();
             self::assertSame(0, $service->generar(new \DateTimeImmutable('2026-09-13'), new \DateTimeImmutable('2026-09-15T23:59:59+00:00'))->ocurrenciasCalculadas);
         }
-        $this->tarea->setFrecuencia(FrecuenciaTarea::DIARIA)->setHoraPrevista(null);
-        $this->em->flush();
-        $resultado = $service->generar(new \DateTimeImmutable('2026-09-13'), new \DateTimeImmutable('2026-09-15T23:59:59+00:00'));
-        self::assertSame(1, $resultado->ignoradas);
-        self::assertStringContainsString('hora prevista', $resultado->ignoradasDetalle[0]);
+        $this->tarea->setFrecuencia(FrecuenciaTarea::DIARIA);
 
         $this->tarea->setHoraPrevista(new \DateTimeImmutable('09:00:00'))->setActiva(false);
         $this->em->flush();

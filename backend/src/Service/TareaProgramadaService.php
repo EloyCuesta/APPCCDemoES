@@ -9,7 +9,6 @@ use App\Enum\EstadoTareaProgramada;
 use App\Exception\BusinessRuleException;
 use App\Repository\TareaProgramadaRepository;
 use App\Service\Support\{CalendarioAPPCC, ContextoAPPCC, TransaccionAPPCC, ValidacionDominio};
-use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -26,9 +25,16 @@ final readonly class TareaProgramadaService
         private ValidacionDominio $validacion,
         private TransaccionAPPCC $transaccion,
         private ClockInterface $clock,
+        private \App\Service\Support\BloqueoCalendarioAPPCC $bloqueo,
     ) {}
 
     public function programar(TareaAPPCC $tarea, Establecimiento $establecimiento, \DateTimeImmutable $fecha, ?Usuario $asignadoA = null, ?\DateTimeImmutable $limite = null): TareaProgramada
+    {
+        return $this->programarConResultado($tarea, $establecimiento, $fecha, $asignadoA, $limite)[0];
+    }
+
+    /** @return array{TareaProgramada, bool} Ejecución y si fue creada en esta llamada. */
+    public function programarConResultado(TareaAPPCC $tarea, Establecimiento $establecimiento, \DateTimeImmutable $fecha, ?Usuario $asignadoA = null, ?\DateTimeImmutable $limite = null): array
     {
         $local = $this->contexto->establecimiento($establecimiento);
         $tarea = $this->contexto->tarea($tarea, $local);
@@ -36,16 +42,22 @@ final readonly class TareaProgramadaService
         $fecha = $this->calendario->paraPersistir($fecha);
         $fecha = $fecha->setTime((int) $fecha->format('H'), (int) $fecha->format('i'), (int) $fecha->format('s'));
         $limite = $limite === null ? null : $this->calendario->paraPersistir($limite);
-        return $this->transaccion->ejecutar(function () use ($tarea, $local, $fecha, $limite, $asignadoA): TareaProgramada {
-            $this->em->lock($tarea, LockMode::PESSIMISTIC_WRITE);
+        return $this->transaccion->ejecutar(function () use ($tarea, $local, $fecha, $limite, $asignadoA): array {
+            $this->bloqueo->bloquear($tarea, false);
+            foreach ($this->em->getUnitOfWork()->getScheduledEntityInsertions() as $pendiente) {
+                if ($pendiente instanceof TareaProgramada && $pendiente->getTarea() === $tarea && $pendiente->getFechaProgramada() == $fecha) {
+                    $this->authorization->assertWrite($pendiente);
+                    return [$pendiente, false];
+                }
+            }
             $existente = $this->programadas->findOneBy(['tarea' => $tarea, 'fechaProgramada' => $fecha]);
-            if ($existente !== null) { $this->authorization->assertWrite($existente); return $existente; }
+            if ($existente !== null) { $this->authorization->assertWrite($existente); return [$existente, false]; }
             $programada = (new TareaProgramada())->setTarea($tarea)->setEstablecimiento($local)
                 ->setFechaProgramada($fecha)->setFechaLimite($limite)->setAsignadoA($asignadoA);
             $this->authorization->assertWrite($programada);
             $this->validacion->validar($programada);
             $this->em->persist($programada);
-            return $programada;
+            return [$programada, true];
         });
     }
 

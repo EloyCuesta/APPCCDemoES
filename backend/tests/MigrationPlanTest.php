@@ -32,6 +32,7 @@ final class MigrationPlanTest extends PostgresTestCase
         $checks = $db->fetchFirstColumn("SELECT conname FROM pg_constraint WHERE contype = 'c'");
         self::assertContains('chk_evidencia_parent', $checks);
         self::assertContains('chk_programada_completada', $checks);
+        foreach (['chk_tarea_dia_semana', 'chk_tarea_dia_mes', 'chk_tarea_plazo', 'chk_tarea_calendario', 'chk_tarea_hora'] as $check) { self::assertContains($check, $checks); }
         self::assertSame(0, (int) $db->fetchOne("SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname = 'public' AND c.contype = 'f' AND c.confdeltype <> 'r'"));
         self::assertSame([], array_values(array_diff((new SchemaValidator($this->em))->getUpdateSchemaList(), ['DROP TABLE doctrine_migration_versions'])));
     }
@@ -73,5 +74,37 @@ final class MigrationPlanTest extends PostgresTestCase
         try { $this->executeMigration('Version20260912083224', 'down'); self::fail('No debe borrar históricos.'); }
         catch (\Doctrine\DBAL\Exception\DriverException $e) { self::assertStringContainsString('Reversión bloqueada', $e->getMessage()); }
         self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM registro_appcc'));
+    }
+
+    public function testChecksImpidenCalendariosInvalidosPorSql(): void
+    {
+        $db = $this->em->getConnection();
+        foreach (["dia_semana = 0", "dia_semana = 8", "dia_semana = 1", "dia_mes = 0", "dia_mes = 32", "dia_mes = 1", "plazo_minutos = 0", "plazo_minutos = -1", "hora_prevista = NULL", "hora_prevista = '24:00:00'", "frecuencia = 'semanal'", "frecuencia = 'mensual'"] as $asignacion) {
+            $db->beginTransaction();
+            try {
+                $db->executeStatement('UPDATE tarea_appcc SET '.$asignacion.' WHERE id = ?', [$this->tarea->getId()]);
+                self::fail('PostgreSQL aceptó '.$asignacion);
+            } catch (\Doctrine\DBAL\Exception\DriverException $e) {
+                self::assertSame('23514', $e->getSQLState(), $asignacion);
+            } finally { $db->rollBack(); }
+        }
+    }
+
+    public function testMigracionPreservaTareaHeredadaIncompletaPeroBloqueaNuevasEscriturasInvalidas(): void
+    {
+        $db = $this->em->getConnection();
+        $this->executeMigration('Version20260912110000', 'down');
+        $db->executeStatement('UPDATE tarea_appcc SET hora_prevista = NULL WHERE id = ?', [$this->tarea->getId()]);
+        $this->executeMigration('Version20260912110000', 'up');
+        $this->em->clear();
+        self::assertFalse($db->fetchOne("SELECT convalidated FROM pg_constraint WHERE conname = 'chk_tarea_calendario'"));
+        $r = self::getContainer()->get(\App\Service\GeneradorTareasProgramadasService::class)->generar(new \DateTimeImmutable('2026-09-13'), new \DateTimeImmutable('2026-09-15'), true);
+        self::assertSame(1, $r->ignoradas);
+        self::assertStringContainsString('hora prevista', $r->ignoradasDetalle[0]);
+        self::assertSame(0, $r->creadas);
+        // Reparación explícita, sin inventar datos durante la migración.
+        $db->executeStatement("UPDATE tarea_appcc SET hora_prevista = '09:00:00' WHERE id = ?", [$this->tarea->getId()]);
+        $db->executeStatement('ALTER TABLE tarea_appcc VALIDATE CONSTRAINT chk_tarea_calendario');
+        self::assertTrue($db->fetchOne("SELECT convalidated FROM pg_constraint WHERE conname = 'chk_tarea_calendario'"));
     }
 }
