@@ -174,6 +174,10 @@ final class SecurityTest extends PostgresTestCase
 
     public function testAdminGestionaMembresiasYResponsableNo(): void
     {
+        // El cambio de rol conserva ahora otro ADMIN activo; mantiene la comprobación original de permisos.
+        $segundo = (new UsuarioEstablecimiento())->setUsuario($this->em->find(Usuario::class, $this->otroUsuario->getId()))
+            ->setEstablecimiento($this->em->find(\App\Entity\Establecimiento::class, $this->local->getId()))->setRol(RolEstablecimiento::ADMIN);
+        $this->em->persist($segundo); $this->em->flush();
         $m = $this->em->getRepository(UsuarioEstablecimiento::class)->findOneBy(['usuario' => $this->usuario->getId(), 'establecimiento' => $this->local->getId()]);
         self::assertSame(200, $this->api('PATCH', '/api/usuarios-establecimientos/'.$m->getId(), ['rol' => 'responsable'])->getStatusCode());
         self::assertSame(403, $this->api('PATCH', '/api/usuarios-establecimientos/'.$m->getId(), ['rol' => 'admin'])->getStatusCode());

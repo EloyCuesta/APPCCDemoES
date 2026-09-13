@@ -21,7 +21,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['entidadFiscal'], message: 'La entidad fiscal ya tiene una configuración.')]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/configuraciones-entidad-fiscal'),
-    new Post(uriTemplate: '/configuraciones-entidad-fiscal'),
     new Get(uriTemplate: '/configuraciones-entidad-fiscal/{id}'),
     new Patch(uriTemplate: '/configuraciones-entidad-fiscal/{id}'),
 ])]

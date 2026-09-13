@@ -146,7 +146,7 @@ class Usuario implements \Symfony\Component\Security\Core\User\UserInterface, \S
 
     public function setEmail(string $email): static
     {
-        $this->email = strtolower(trim($email));
+        $this->email = \App\Service\Support\EmailUsuario::normalizar($email);
 
         return $this;
     }

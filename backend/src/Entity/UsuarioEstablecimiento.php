@@ -22,10 +22,14 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['usuario', 'establecimiento'], message: 'El usuario ya pertenece a este establecimiento.')]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/usuarios-establecimientos'),
-    new Post(uriTemplate: '/usuarios-establecimientos'),
     new Get(uriTemplate: '/usuarios-establecimientos/{id}'),
-    new Patch(uriTemplate: '/usuarios-establecimientos/{id}'),
-])]
+    new Patch(uriTemplate: '/usuarios-establecimientos/{id}', input: \App\Dto\CambiarRolInput::class,
+        read: false, securityPostDenormalize: "is_granted('ROLE_USER')", processor: \App\State\Processor\MembresiaProcessor::class),
+    new Post(uriTemplate: '/usuarios-establecimientos/{id}/baja', status: 200, input: false, deserialize: false,
+        read: false, securityPostDenormalize: "is_granted('ROLE_USER')", processor: \App\State\Processor\MembresiaProcessor::class, name: 'baja_membresia'),
+    new Post(uriTemplate: '/usuarios-establecimientos/{id}/reactivar', status: 200, input: false, deserialize: false,
+        read: false, securityPostDenormalize: "is_granted('ROLE_USER')", processor: \App\State\Processor\MembresiaProcessor::class, name: 'reactivar_membresia'),
+], denormalizationContext: ['allow_extra_attributes' => false])]
 class UsuarioEstablecimiento
 {
     #[ORM\Id]

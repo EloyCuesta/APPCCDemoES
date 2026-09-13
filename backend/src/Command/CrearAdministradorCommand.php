@@ -30,7 +30,7 @@ final class CrearAdministradorCommand extends Command
         $id = filter_var($input->getArgument('establecimiento'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $local = $id === false ? null : $this->locales->find($id);
         if ($local === null || !$local->isActivo() || !$local->getEntidadFiscal()?->isActivo()) { $io->error('Establecimiento o entidad fiscal no disponibles.'); return Command::FAILURE; }
-        $email = strtolower(trim($input->getArgument('email')));
+        $email = \App\Service\Support\EmailUsuario::normalizar($input->getArgument('email'));
         $user = $this->usuarios->findOneBy(['email' => $email]);
         if ($user === null) {
             $nombre = $input->getOption('nombre') ?? ($input->isInteractive() ? $io->ask('Nombre') : '');

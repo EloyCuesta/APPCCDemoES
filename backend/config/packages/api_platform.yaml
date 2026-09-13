@@ -1,9 +1,12 @@
 api_platform:
+    mapping:
+        paths: ['%kernel.project_dir%/src/Entity', '%kernel.project_dir%/src/Dto']
     title: Hello API Platform
     version: 1.0.0
     exception_to_status:
         App\Exception\BusinessRuleException: 422
         Symfony\Component\Serializer\Exception\UnexpectedValueException: 400
+        Symfony\Component\Serializer\Exception\ExtraAttributesException: 400
     defaults:
         stateless: true
         security: "is_granted('ROLE_USER')"

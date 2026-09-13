@@ -19,6 +19,8 @@ services:
     App\:
         resource: '../src/'
         exclude:
+            - '../src/Entity/'
+            - '../src/Dto/'
             - '../src/Service/ResultadoGeneracion.php'
 
     # add more service definitions when explicit configuration is needed

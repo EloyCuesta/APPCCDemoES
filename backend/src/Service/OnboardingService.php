@@ -32,7 +32,27 @@ final readonly class OnboardingService
         private ValidacionDominio $validacion,
         private TransaccionAPPCC $transaccion,
         private ClockInterface $clock,
+        private PasswordInicialService $passwords,
     ) {
+    }
+
+    public function registrarPublico(\App\Dto\OnboardingInput $input): \App\Dto\AltaUsuarioOutput
+    {
+        $this->validacion->validar($input);
+        $titular = $input->entidadFiscal->crear();
+        $local = $input->establecimiento->crear();
+        $admin = $input->administrador->crear();
+        [$token, $expires] = $this->transaccion->ejecutar(function () use ($titular, $local, $admin): array {
+            // Serializa también con aceptaciones para el mismo email aún inexistente.
+            $this->em->getConnection()->executeQuery('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['identidad:'.$admin->getEmail()]);
+            if ($this->entidades->count(['nif' => $titular->getNif()]) > 0 || $this->usuarios->count(['email' => $admin->getEmail()]) > 0) {
+                throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('El NIF o el email ya están registrados.');
+            }
+            $this->crearOnboarding($titular, $local, $admin);
+            return $this->passwords->emitir($admin);
+        });
+        $membresia = $local->getUsuariosEstablecimiento()->first();
+        return new \App\Dto\AltaUsuarioOutput($admin->getId(), $local->getId(), $membresia->getId(), $token, $expires);
     }
 
     public function crearOnboarding(EntidadFiscal $titular, Establecimiento $nuevoLocal, Usuario $administrador, ?PlantillaAPPCC $plantilla = null): Establecimiento

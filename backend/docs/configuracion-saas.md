@@ -2,6 +2,10 @@
 
 El backend utiliza PostgreSQL y Symfony con API Platform.
 
+Véase [usuarios y onboarding](usuarios-onboarding.md) para el alta transaccional, invitaciones,
+configuración inicial de contraseña y gestión de membresías. Las configuraciones fiscal y de
+establecimiento se crean en ese flujo; sus POST independientes están eliminados.
+
 Las credenciales reales de cada desarrollador deben almacenarse en archivos locales ignorados por Git. `.env` contiene valores de ejemplo y `.env.local` puede utilizarse para la conexión de desarrollo.
 
 Para pruebas debe utilizarse una base PostgreSQL independiente mediante `.env.test.local`.

@@ -26,6 +26,7 @@ security:
             user_checker: App\Security\UsuarioChecker
             jwt: ~
     access_control:
+        - { path: ^/api/(onboarding|invitaciones/aceptar|auth/configurar-password)$, roles: PUBLIC_ACCESS, methods: [POST] }
         - { path: ^/api/login_check$, roles: PUBLIC_ACCESS, methods: [POST] }
         - { path: ^/api(?:/|$), roles: ROLE_USER }
 

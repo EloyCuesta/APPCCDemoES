@@ -12,6 +12,14 @@ final readonly class TenantAuthorization
 {
     public function __construct(private CurrentEstablecimientoContext $context, private EntityManagerInterface $em) {}
 
+    /** Se vuelve a consultar bajo el bloqueo del establecimiento; no usa el snapshot previo al PATCH. */
+    public function assertGestionUsuarios(Establecimiento $local, Usuario $autor): void
+    {
+        $this->assertLocal($local);
+        $ok = $this->em->getConnection()->fetchOne("SELECT m.id FROM usuario_establecimiento m JOIN usuario u ON u.id = m.usuario_id JOIN establecimiento e ON e.id = m.establecimiento_id JOIN entidad_fiscal f ON f.id = e.entidad_fiscal_id WHERE m.usuario_id = ? AND m.establecimiento_id = ? AND m.activo AND m.rol = 'admin' AND u.activo AND e.activo AND f.activo", [$autor->getId(), $local->getId()]);
+        if ($ok === false) { throw new AccessDeniedHttpException('Solo un ADMIN activo puede gestionar usuarios.'); }
+    }
+
     public function assertGestionTareas(): void
     {
         if (!in_array($this->context->rol(), [RolEstablecimiento::ADMIN, RolEstablecimiento::RESPONSABLE], true)) {
@@ -30,6 +38,10 @@ final readonly class TenantAuthorization
 
     public function assertReadClass(string $class): void
     {
+        if ($class === \App\Entity\InvitacionUsuario::class) {
+            $this->assertGestionUsuarios($this->context->establecimiento(), $this->context->usuario());
+            return;
+        }
         if ($class === PlantillaAPPCC::class) { $this->context->usuario(); return; }
         if ($this->context->rol() === RolEstablecimiento::TRABAJADOR
             && in_array($class, [EntidadFiscal::class, ConfiguracionEntidadFiscal::class, UsuarioEstablecimiento::class], true)) {
