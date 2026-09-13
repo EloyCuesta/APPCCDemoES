@@ -20,7 +20,7 @@ final readonly class GeneradorTareasProgramadasService
     ) {
     }
 
-    public function generar(\DateTimeImmutable $desde, \DateTimeImmutable $hasta, bool $fechasCalendario = false): \App\Service\ResultadoGeneracion
+    public function generar(\DateTimeImmutable $desde, \DateTimeImmutable $hasta, bool $fechasCalendario = false, ?int $tareaId = null): \App\Service\ResultadoGeneracion
     {
         if ($hasta < $desde) {
             throw new \InvalidArgumentException('El intervalo de generación no es válido.');
@@ -33,7 +33,7 @@ final readonly class GeneradorTareasProgramadasService
         $ignoradas = 0;
         $detalle = [];
 
-        foreach ($this->tareas->findActiveForGeneration() as $tarea) {
+        foreach ($this->tareas->findActiveForGeneration($tareaId) as $tarea) {
             ++$analizadas;
             $this->transaccion->ejecutar(function () use ($tarea, $desde, $hasta, $fechasCalendario, &$calculadas, &$creadas, &$existentes, &$ignoradas, &$detalle): void {
                 $this->bloqueo->bloquear($tarea, true);

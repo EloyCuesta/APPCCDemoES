@@ -12,6 +12,22 @@ final readonly class TenantAuthorization
 {
     public function __construct(private CurrentEstablecimientoContext $context, private EntityManagerInterface $em) {}
 
+    public function assertGestionTareas(): void
+    {
+        if (!in_array($this->context->rol(), [RolEstablecimiento::ADMIN, RolEstablecimiento::RESPONSABLE], true)) {
+            throw new AccessDeniedHttpException('El rol actual no permite gestionar ejecuciones.');
+        }
+    }
+
+    /** Operaciones con DTO: el dominio valida solo las relaciones que la operación cambia. */
+    public function assertGestionEjecucion(TareaProgramada $programada): void
+    {
+        if (!$this->context->isApiRequest()) { return; }
+        $this->assertGestionTareas();
+        $this->assertResource($programada);
+        if ($programada->getTarea() !== null) { $this->assertResource($programada->getTarea()); }
+    }
+
     public function assertReadClass(string $class): void
     {
         if ($class === PlantillaAPPCC::class) { $this->context->usuario(); return; }

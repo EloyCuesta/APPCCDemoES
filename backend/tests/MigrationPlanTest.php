@@ -50,6 +50,8 @@ final class MigrationPlanTest extends PostgresTestCase
 
     public function testBackfillConservaRegistroYOrigen(): void
     {
+        // Retroceder primero las ampliaciones de tarea_programada antes de recrear su tabla.
+        $this->executeMigration('Version20260913100000', 'down');
         $this->executeMigration('Version20260912083224', 'down');
         $db = $this->em->getConnection();
         try {
@@ -64,6 +66,7 @@ final class MigrationPlanTest extends PostgresTestCase
             self::assertSame($this->usuario->getId(), $row['asignado_a_id']);
             self::assertSame('9.125', $row['valor_numerico']);
         } finally {
+            $this->executeMigration('Version20260913100000', 'up');
             $this->em->clear();
         }
     }

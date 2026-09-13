@@ -47,7 +47,8 @@ final class ReconciliacionTareasTest extends PostgresTestCase
         self::getContainer()->get(TareaAPPCCService::class)->guardarCambios($this->tarea);
         self::assertSame(0, $this->em->getRepository(TareaProgramada::class)->count([]));
         $this->generar();
-        $nuevas = $this->em->getRepository(TareaProgramada::class)->findAll();
+        // La comparación posterior es ORDER BY id; no depender del plan físico de findAll().
+        $nuevas = $this->em->getRepository(TareaProgramada::class)->findBy([], ['id' => 'ASC']);
         self::assertCount(in_array($campo, ['hora', 'plazo'], true) ? 8 : ($campo === 'evento' ? 0 : 1), $nuevas);
         foreach ($nuevas as $p) {
             self::assertNotContains($p->getId(), $antiguas);
@@ -72,7 +73,7 @@ final class ReconciliacionTareasTest extends PostgresTestCase
         $conRegistro = $this->programar('+3 days');
         $this->em->persist($this->registro($conRegistro)->setConforme(true)); // Incluye pendiente con registro heredado.
         $cancelada = $this->programar('+4 days');
-        $cancelada->cambiarEstado(EstadoTareaProgramada::OMITIDA);
+        $cancelada->omitir('Cierre del establecimiento.', $this->usuario, $this->clock->now());
         $this->em->flush();
         $plan = (new PlanControl())->setNombre('Otro')->setTipo(TipoPlanControl::TEMPERATURAS)->setEstablecimiento($this->otroLocal);
         $otra = (new TareaAPPCC())->setNombre('Otra empresa')->setEstablecimiento($this->otroLocal)->setPlanControl($plan)->setFrecuencia(FrecuenciaTarea::DIARIA)->setHoraPrevista(new \DateTimeImmutable('09:00:00'));

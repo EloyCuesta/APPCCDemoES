@@ -29,7 +29,21 @@ class TareaAPPCCRepository extends ServiceEntityRepository
     }
 
     /** @return list<TareaAPPCC> */
-    public function findActiveForGeneration(): array
+    public function findActiveForGeneration(?int $tareaId = null): array
+    {
+        $qb = $this->activeGenerationQuery();
+        if ($tareaId !== null) { $qb->andWhere('t.id = :id')->setParameter('id', $tareaId); }
+        return $qb->getQuery()->getResult();
+    }
+
+    /** @return list<array{id: int, establecimiento_id: int}> */
+    public function findActiveGenerationIdsAfter(int $ultimo): array
+    {
+        return $this->activeGenerationQuery()->select('t.id, IDENTITY(t.establecimiento) AS establecimiento_id')
+            ->andWhere('t.id > :ultimo')->setParameter('ultimo', $ultimo)->setMaxResults(100)->getQuery()->getScalarResult();
+    }
+
+    private function activeGenerationQuery(): \Doctrine\ORM\QueryBuilder
     {
         return $this->createQueryBuilder('t')
             ->join('t.planControl', 'p')
@@ -49,7 +63,6 @@ class TareaAPPCCRepository extends ServiceEntityRepository
                 FrecuenciaTarea::SEMANAL,
                 FrecuenciaTarea::MENSUAL,
             ])
-            ->orderBy('t.id', 'ASC')
-            ->getQuery()->getResult();
+            ->orderBy('t.id', 'ASC');
     }
 }

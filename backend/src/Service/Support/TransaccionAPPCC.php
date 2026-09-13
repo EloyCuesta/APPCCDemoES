@@ -25,6 +25,8 @@ final readonly class TransaccionAPPCC
         } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
             // Incluye el flush exterior de incidencias automáticas anidadas.
             throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('La operación entra en conflicto con otro registro existente o concurrente.', $e);
+        } catch (\Doctrine\DBAL\Exception\RetryableException|\Doctrine\ORM\OptimisticLockException $e) {
+            throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('La operación ha encontrado un conflicto concurrente. Recarga el recurso y vuelve a intentarlo.', $e);
         }
     }
 }

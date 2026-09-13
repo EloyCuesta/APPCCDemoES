@@ -1,6 +1,6 @@
 # Modelo MVP APPCC
 
-Modelo revisado sobre `main` desde `cee933a`, incluida generación recurrente. Backend PHP 8.3,
+Modelo revisado sobre `main`, incluido el [ciclo operativo de tareas](ciclo-operativo-tareas.md) desde `29f4228`. Backend PHP 8.3,
 Symfony 7.4, API Platform 4.3, Doctrine ORM 3.7/DBAL 4.4 y PostgreSQL **18.3**.
 Se mantienen identificadores enteros y las migraciones anteriores; las ampliaciones
 se incorporan mediante migraciones incrementales.
@@ -37,7 +37,7 @@ forma idempotente las frecuencias diaria, semanal y mensual mediante el comando
 `app:tareas:generar`. Las fechas se calculan en la zona horaria de la entidad fiscal,
 los límites mensuales inexistentes usan el último día válido y las ejecuciones se
 crean sin usuario asignado. El servicio permite gestionar estados y detectar vencidas.
-La agenda consulta ocurrencias pendientes/vencidas hasta la fecha.
+El comando `app:tareas:procesar` genera y detecta vencimientos con recuperación de ayer y hoy en cada zona fiscal. La API permite crear ejecuciones `BAJO_DEMANDA`, asignarlas y omitirlas con auditoría. La agenda filtra y pagina en SQL las ejecuciones pendientes/vencidas. Véanse [endpoints, cron, permisos y transiciones](ciclo-operativo-tareas.md).
 
 Registrar un control bloquea la ejecución, valida plazo/pertenencia y calcula la
 conformidad numérica/booleana. Registro, COMPLETADA, completadaAt, incidencia automática
@@ -52,7 +52,7 @@ impiden actualizar o borrar entradas. No se usan cascade remove ni orphanRemoval
 
 ## Migraciones
 
-El repositorio contiene actualmente siete migraciones:
+El repositorio contiene actualmente ocho migraciones:
 
 1. `Version20260911130812`: crea `EntidadFiscal`.
 2. `Version20260911132708`: crea el modelo APPCC inicial.
@@ -61,6 +61,7 @@ El repositorio contiene actualmente siete migraciones:
 5. `Version20260912084920`: añade autenticación a `Usuario` mediante los campos `password` y `roles`.
 6. `Version20260912100000`: añade `diaSemana`, `diaMes` y `plazoMinutos` a `TareaAPPCC`, conservando valores nulos históricos.
 7. `Version20260912110000`: añade versión optimista y restricciones de calendario en PostgreSQL, sin reescribir la migración anterior ni completar datos heredados arbitrariamente.
+8. `Version20260913100000`: añade auditoría de omisión, CHECK de coherencia e índice de vencimiento por fecha límite, conservando omisiones históricas sin inventar datos.
 
 La séptima migración crea CHECK de rangos, coherencia de frecuencia/días, plazo positivo y hora obligatoria/válida. Usa `NOT VALID` para conservar posibles definiciones heredadas inválidas, y valida cada restricción cuando todos los datos existentes la cumplen. Una restricción aún no validada protege igualmente las nuevas inserciones y actualizaciones. Tras configurar las tareas heredadas debe ejecutarse `ALTER TABLE tarea_appcc VALIDATE CONSTRAINT nombre_del_check`. El esquema Doctrine no sustituye esta comprobación de datos: consultar `pg_constraint.convalidated`.
 

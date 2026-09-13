@@ -147,11 +147,13 @@ El servicio permite crear una ejecución explícitamente, impedir duplicados par
 El comando operativo es:
 
 ```powershell
-php bin/console app:tareas:generar
-php bin/console app:tareas:generar --desde="2026-09-12" --hasta="2026-09-20"
+php bin/console app:tareas:procesar --horizonte-dias=7
+php bin/console app:tareas:procesar --desde="2026-09-12" --hasta="2026-09-20"
 ```
 
-`--desde` y `--hasta` limitan la ventana; si se omiten ambos se utiliza ahora y ahora más siete días. Fechas estrictas `YYYY-MM-DD` incluyen días locales completos en cada zona fiscal. Con un único límite, el otro se obtiene sumando siete días a `--desde` o restándolos a `--hasta`. También se aceptan instantes ISO con segundos y zona explícita, sin mezclarlos con fechas sin hora. La generación es idempotente, ajusta días mensuales inexistentes al último día válido y deja `asignadoA` en `null`.
+`--desde` y `--hasta` limitan la ventana; si se omiten ambos se incluyen ayer, hoy y siete días futuros completos en cada zona fiscal. Con un único límite, el otro se obtiene sumando/restando el horizonte. Se aceptan fechas estrictas `YYYY-MM-DD` o instantes ISO con zona explícita, sin mezclar formatos. Tras generar idempotentemente, se marcan vencidas las pendientes con fecha límite anterior al reloj del servidor. Las tareas sin límite permanecen pendientes. El comando anterior `app:tareas:generar` conserva su comportamiento de solo generación.
+
+La API permite crear `BAJO_DEMANDA`, asignar/desasignar y omitir con auditoría mediante operaciones específicas, además de filtrar y paginar la agenda. Véase [ciclo operativo de tareas](ciclo-operativo-tareas.md) para JSON, permisos, cron cada cinco minutos, concurrencia y tratamiento de históricos.
 
 Los cambios de frecuencia, hora, día o plazo retiran transaccionalmente las futuras pendientes sin registro de esa tarea. Las completadas, históricas y cualquier ejecución con registro se conservan. Ejecutar de nuevo el generador para reconstruir el horizonte deseado. Los bloqueos y la versión de la tarea protegen generación y edición concurrentes. Véanse [las reglas de reconciliación](modelo-mvp.md) y [el informe técnico](revision-generacion-recurrente.md).
 

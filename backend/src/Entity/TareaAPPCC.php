@@ -132,7 +132,7 @@ class TareaAPPCC
 
     public function __construct()
     {
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = \Symfony\Component\Clock\Clock::get()->now();
         $this->programaciones = new ArrayCollection();
     }
 
