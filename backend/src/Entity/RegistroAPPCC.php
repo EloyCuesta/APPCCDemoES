@@ -20,10 +20,12 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Index(name: 'idx_registro_local_fecha', columns: ['establecimiento_id', 'fecha_hora'])]
 #[ORM\Index(name: 'idx_registro_usuario_fecha', columns: ['usuario_id', 'fecha_hora'])]
+#[ORM\Index(name: 'idx_registro_confirmado_por', columns: ['confirmado_por_id'])]
 #[ORM\Entity(repositoryClass: RegistroAPPCCRepository::class)]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/registros'),
-    new Post(uriTemplate: '/registros', validate: false, processor: RegistrarControlProcessor::class),
+    new Post(uriTemplate: '/registros', input: \App\Dto\CrearRegistroInput::class, validate: false,
+        denormalizationContext: ['allow_extra_attributes' => false], securityPostDenormalize: "is_granted('ROLE_USER')", processor: RegistrarControlProcessor::class),
     new Get(uriTemplate: '/registros/{id}'),
 ])]
 class RegistroAPPCC
@@ -74,6 +76,33 @@ class RegistroAPPCC
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[ApiProperty(writable: false)]
     private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[ApiProperty(writable: false)]
+    private ?\DateTimeImmutable $confirmadoAt = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
+    #[ApiProperty(writable: false, readableLink: false)]
+    private ?Usuario $confirmadoPor = null;
+
+    #[ORM\Column(length: 32, nullable: true)]
+    #[ApiProperty(writable: false)]
+    private ?string $versionDeclaracionFirma = null;
+
+    public function getConfirmadoAt(): ?\DateTimeImmutable { return $this->confirmadoAt; }
+    public function getConfirmadoPor(): ?Usuario { return $this->confirmadoPor; }
+    public function getVersionDeclaracionFirma(): ?string { return $this->versionDeclaracionFirma; }
+
+    public function confirmar(Usuario $usuario, \DateTimeImmutable $ahora): void
+    {
+        if ($this->id !== null || $this->confirmadoAt !== null || $usuario !== $this->usuario) {
+            throw new \App\Exception\BusinessRuleException('La confirmación solo puede establecerse al crear el registro, por su autor.');
+        }
+        $this->confirmadoPor = $usuario;
+        $this->confirmadoAt = $ahora;
+        $this->versionDeclaracionFirma = '1';
+    }
 
     /** @var Collection<int, Incidencia> */
     #[ORM\OneToMany(mappedBy: 'registro', targetEntity: Incidencia::class)]

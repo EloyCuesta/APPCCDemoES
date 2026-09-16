@@ -146,7 +146,7 @@ final class ProgramacionesApiTest extends PostgresTestCase
         self::assertSame($this->clock->now()->getTimestamp(), (new \DateTimeImmutable($data['omitidaAt']))->getTimestamp());
         self::assertSame(422, $this->api('POST', $p['@id'].'/omitir', ['motivo' => 'Otra omisión'])->getStatusCode());
         self::assertSame(422, $this->api('POST', $p['@id'].'/asignar', ['usuario' => null])->getStatusCode());
-        self::assertSame(422, $this->api('POST', '/api/registros', ['tareaProgramada' => $p['@id'], 'establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'valorNumerico' => '3'])->getStatusCode());
+        self::assertSame(422, $this->api('POST', '/api/registros', ['tareaProgramada' => $p['@id'], 'valorNumerico' => '3'])->getStatusCode());
         self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM registro_appcc'));
         self::assertContains($this->api('PATCH', $p['@id'], ['estado' => 'pendiente'])->getStatusCode(), [404, 405]);
     }
@@ -157,7 +157,7 @@ final class ProgramacionesApiTest extends PostgresTestCase
         self::getContainer()->get(TareaProgramadaService::class)->detectarVencidas($this->em->find(Establecimiento::class, $this->local->getId()));
         self::assertSame(200, $this->api('POST', $vencida['@id'].'/omitir', ['motivo' => 'Cierre del local'])->getStatusCode());
         $completada = $this->json($this->crear(['fechaProgramada' => '2026-09-12T09:10:00Z']), 201);
-        self::assertSame(201, $this->api('POST', '/api/registros', ['tareaProgramada' => $completada['@id'], 'establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'valorNumerico' => '3'])->getStatusCode());
+        self::assertSame(201, $this->api('POST', '/api/registros', ['tareaProgramada' => $completada['@id'], 'valorNumerico' => '3'])->getStatusCode());
         self::assertSame(422, $this->api('POST', $completada['@id'].'/omitir', ['motivo' => 'Cierre del local'])->getStatusCode());
         self::assertSame(422, $this->api('POST', $completada['@id'].'/asignar', ['usuario' => null])->getStatusCode());
     }

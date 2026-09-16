@@ -20,10 +20,13 @@ abstract class PostgresTestCase extends KernelTestCase
     protected Usuario $usuario;
     protected Usuario $otroUsuario;
     protected TareaAPPCC $tarea;
+    protected string $evidenciasDir;
 
     protected function setUp(): void
     {
         parent::setUp();
+        $this->evidenciasDir = dirname(__DIR__, 2).'/var/evidencias-tests/'.bin2hex(random_bytes(12));
+        $_SERVER['APPCC_EVIDENCIAS_DIR'] = $_ENV['APPCC_EVIDENCIAS_DIR'] = $this->evidenciasDir;
         $this->clock = new MockClock('2026-09-12T10:00:00+00:00');
         Clock::set($this->clock);
         self::bootKernel();
@@ -75,5 +78,12 @@ abstract class PostgresTestCase extends KernelTestCase
     {
         if (isset($this->em)) { $this->em->getConnection()->close(); }
         parent::tearDown();
+        if (isset($this->evidenciasDir) && is_dir($this->evidenciasDir)) {
+            // Ruta aleatoria creada por este test, siempre dentro del directorio de pruebas.
+            $base = realpath(dirname(__DIR__, 2).'/var/evidencias-tests');
+            $path = realpath($this->evidenciasDir);
+            if ($base === false || $path === false || !str_starts_with($path, $base.DIRECTORY_SEPARATOR)) { throw new \LogicException('Directorio de prueba inesperado.'); }
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($path);
+        }
     }
 }

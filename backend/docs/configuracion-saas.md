@@ -127,7 +127,7 @@ La modificación de estas configuraciones no altera los registros históricos ex
 
 ## Evidencias
 
-El modelo `Evidencia` está implementado, pero actualmente representa únicamente los metadatos del archivo.
+El modelo `Evidencia` está conectado al almacenamiento local privado; las nuevas evidencias se crean consumiendo subidas temporales dentro de la operación de registro.
 
 Puede asociarse exactamente a uno de estos elementos:
 
@@ -136,9 +136,7 @@ RegistroAPPCC
 Incidencia
 ```
 
-No existe todavía un sistema de almacenamiento físico conectado al modelo.
-
-Por tanto, actualmente no se comprueba que un `storageKey` corresponda a un archivo real y todavía no puede garantizarse `requiereFotoNoConforme` de forma atómica.
+El servidor calcula MIME, tamaño y hash. `requiereFotoNoConforme` y `requiereFirmaRegistro` se aplican al crear el registro, con compensación de archivos si se revierte SQL. Véase [evidencias y confirmación](evidencias-registros.md) para configuración, endpoints, persistencia y límites operativos.
 
 ## Programación de tareas
 
@@ -167,9 +165,6 @@ Las tareas históricas sin `horaPrevista` no se alteran: el generador las inform
 
 Aunque autenticación y aislamiento multiempresa ya están implementados, todavía quedan fuera del flujo operativo completo:
 
-* almacenamiento real de evidencias;
-* fotografías obligatorias de no conformidades;
-* firma de registros;
 * notificaciones por correo;
 * recordatorios de tareas;
 * resúmenes diarios;

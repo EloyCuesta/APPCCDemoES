@@ -172,7 +172,7 @@ Se conserva `idx_programada_agenda (establecimiento_id, estado, fecha_programada
 
 ## Límites pendientes
 
-`BAJO_DEMANDA` continúa manual. No se implementan `POR_TURNO`, `POR_RECEPCION`, notificaciones, fotografías, almacenamiento de evidencias, firmas, frontend, Messenger ni Scheduler. El cron debe instalarse en el servidor de despliegue. Los cambios de zona fiscal y las escrituras directas que eludan los servicios siguen sin provocar reconciliación automática. Las definiciones heredadas incompletas y las omisiones históricas sin auditoría necesitan una revisión explícita; no se rellenan datos por suposición.
+`BAJO_DEMANDA` continúa manual. No se implementan `POR_TURNO`, `POR_RECEPCION`, notificaciones, frontend, Messenger ni Scheduler. Las fotografías, el almacenamiento privado y la confirmación auditable se describen en [evidencias y registros](evidencias-registros.md). El cron debe instalarse en el servidor de despliegue. Los cambios de zona fiscal y las escrituras directas que eludan los servicios siguen sin provocar reconciliación automática. Las definiciones heredadas incompletas y las omisiones históricas sin auditoría necesitan una revisión explícita; no se rellenan datos por suposición.
 
 ## Pruebas existentes
 

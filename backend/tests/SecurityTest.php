@@ -136,6 +136,9 @@ final class SecurityTest extends PostgresTestCase
     {
         $p = $this->ownProgrammed();
         $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'usuario' => '/api/usuarios/'.$this->otroUsuario->getId(), 'valorNumerico' => '9', 'observaciones' => 'Fuera de rango']);
+        self::assertSame(400, $r->getStatusCode(), 'Ahora la suplantación se rechaza explícitamente.');
+        self::assertSame(0, $this->em->getRepository(RegistroAPPCC::class)->count([]));
+        $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'valorNumerico' => '9', 'observaciones' => 'Fuera de rango']);
         self::assertSame(201, $r->getStatusCode());
         $record = $this->em->getRepository(RegistroAPPCC::class)->findOneBy([]);
         self::assertSame($this->usuario->getId(), $record->getUsuario()->getId());
@@ -147,7 +150,7 @@ final class SecurityTest extends PostgresTestCase
     {
         $p = $this->ownProgrammed(); $this->role(RolEstablecimiento::AUDITOR);
         self::assertSame(200, $this->api('GET', '/api/tareas-programadas')->getStatusCode());
-        self::assertSame(403, $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'valorNumerico' => '3'])->getStatusCode());
+        self::assertSame(403, $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'valorNumerico' => '3'])->getStatusCode());
     }
 
     public function testTrabajadorNoModificaConfiguracion(): void
@@ -186,8 +189,11 @@ final class SecurityTest extends PostgresTestCase
     public function testEvidenciaAsociaAutorAutenticado(): void
     {
         $p = $this->ownProgrammed();
-        $record = self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($p));
-        $r = $this->api('POST', '/api/evidencias', ['registro' => '/api/registros/'.$record->getId(), 'subidaPor' => '/api/usuarios/'.$this->otroUsuario->getId(), 'tipo' => 'foto', 'storageKey' => 'prueba/foto', 'nombreOriginal' => 'foto.jpg', 'mimeType' => 'image/jpeg', 'tamanoBytes' => 100]);
+        $token = self::getContainer()->get(\App\Service\SubidaEvidenciaService::class)->subir(\App\Tests\Support\EvidenciaFixtures::archivo(), \App\Enum\TipoEvidencia::FOTO, $this->usuario, $this->local)['token'];
+        $r = $this->api('POST', '/api/evidencias', ['registro' => '/api/registros/1', 'subidaPor' => '/api/usuarios/'.$this->otroUsuario->getId(), 'tipo' => 'foto', 'storageKey' => 'prueba/foto', 'nombreOriginal' => 'foto.jpg', 'mimeType' => 'image/jpeg', 'tamanoBytes' => 100]);
+        self::assertSame(405, $r->getStatusCode(), 'La creación de metadatos desde JSON ya no está expuesta.');
+        self::assertSame(0, $this->em->getRepository(Evidencia::class)->count([]));
+        $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'valorNumerico' => '3', 'evidencias' => [['token' => $token, 'tipo' => 'foto']]]);
         self::assertSame(201, $r->getStatusCode());
         self::assertSame($this->usuario->getId(), $this->em->getRepository(Evidencia::class)->findOneBy([])->getSubidaPor()->getId());
     }
@@ -212,7 +218,7 @@ final class SecurityTest extends PostgresTestCase
     {
         $p = $this->ownProgrammed();
         $this->role(RolEstablecimiento::TRABAJADOR);
-        $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'valorNumerico' => '3']);
+        $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'valorNumerico' => '3']);
         self::assertSame(201, $r->getStatusCode());
         $r = $this->api('POST', '/api/incidencias', ['establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'titulo' => 'Problema manual', 'descripcion' => 'Detectado en revisión.']);
         self::assertSame(201, $r->getStatusCode());
@@ -239,7 +245,12 @@ final class SecurityTest extends PostgresTestCase
             $record = $this->registrar('9');
             $incident = $record->getIncidencias()->first();
             $action = self::getContainer()->get(\App\Service\AccionCorrectivaService::class)->anadir((new AccionCorrectiva())->setIncidencia($incident)->setUsuario($user)->setDescripcion('Acción de prueba'));
-            $evidence = self::getContainer()->get(\App\Service\EvidenciaService::class)->anadir((new Evidencia())->setIncidencia($incident)->setSubidaPor($user)->setTipo(\App\Enum\TipoEvidencia::DOCUMENTO)->setStorageKey('test/doc')->setNombreOriginal('documento.pdf')->setMimeType('application/pdf')->setTamanoBytes(100));
+            // Fixture de una evidencia histórica de incidencia, con un archivo real privado.
+            $storage = self::getContainer()->get(\App\Service\Storage\EvidenciaStorageInterface::class);
+            $archivo = $storage->guardarTemporal(\App\Tests\Support\EvidenciaFixtures::archivo('pdf'), \App\Enum\TipoEvidencia::DOCUMENTO);
+            $key = $storage->nuevaClaveDefinitiva(); $storage->mover($archivo->storageKey, $key);
+            $evidence = (new Evidencia())->setIncidencia($incident)->setSubidaPor($user)->setTipo(\App\Enum\TipoEvidencia::DOCUMENTO)->setStorageKey($key)->setNombreOriginal($archivo->nombreOriginal)->setMimeType($archivo->mimeType)->setTamanoBytes($archivo->tamanoBytes)->setHashSha256($archivo->hashSha256);
+            $this->em->persist($evidence);
             $point = (new \App\Entity\PuntoControl())->setEstablecimiento($local)->setNombre('Punto')->setTipo(\App\Enum\TipoPuntoControl::ZONA);
             $this->em->persist($point); $this->em->flush();
             $member = $this->em->getRepository(UsuarioEstablecimiento::class)->findOneBy(['usuario' => $user, 'establecimiento' => $local]);
@@ -262,8 +273,9 @@ final class SecurityTest extends PostgresTestCase
             self::assertNotContains($uris[1][$path], $ids, $path);
             self::assertSame(404, $this->api('GET', '/api/'.$path.'/'.$uris[1][$path])->getStatusCode(), $path);
         }
+        self::assertSame(404, $this->api('GET', '/api/evidencias/'.$uris[1]['evidencias'].'/descargar')->getStatusCode());
         $response = $this->api('POST', '/api/evidencias', ['registro' => '/api/registros/'.$uris[1]['registros'], 'tipo' => 'foto', 'storageKey' => 'otro', 'nombreOriginal' => 'otro.jpg', 'mimeType' => 'image/jpeg', 'tamanoBytes' => 10]);
-        self::assertContains($response->getStatusCode(), [400, 404]);
+        self::assertSame(405, $response->getStatusCode());
     }
 
     public function testPatchCalendarioValidaYReconciliaLaAgenda(): void

@@ -11,36 +11,44 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: EvidenciaRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-#[ApiResource(operations: [new GetCollection(uriTemplate: '/evidencias'), new Get(uriTemplate: '/evidencias/{id}'), new \ApiPlatform\Metadata\Post(uriTemplate: '/evidencias', validate: false, processor: \App\State\Processor\EvidenciaProcessor::class)])]
+#[ApiResource(operations: [new GetCollection(uriTemplate: '/evidencias'), new Get(uriTemplate: '/evidencias/{id}', requirements: ['id' => '[1-9][0-9]*'])], normalizationContext: ['groups' => ['evidencia:read']])]
 class Evidencia
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['evidencia:read'])]
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'evidencias')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
+    #[Groups(['evidencia:read'])]
     private ?RegistroAPPCC $registro = null;
 
     #[ORM\ManyToOne(inversedBy: 'evidencias')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
+    #[Groups(['evidencia:read'])]
     private ?Incidencia $incidencia = null;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
     #[Assert\NotNull]
     #[ApiProperty(writable: false)]
+    #[Groups(['evidencia:read'])]
     private ?Usuario $subidaPor = null;
 
     #[ORM\Column(length: 20, enumType: TipoEvidencia::class)]
     #[Assert\NotNull]
+    #[Groups(['evidencia:read'])]
     private ?TipoEvidencia $tipo = null;
 
     #[ORM\Column(length: 512)]
+    #[ApiProperty(readable: false, writable: false)]
+    #[\Symfony\Component\Serializer\Attribute\Ignore]
     #[Assert\NotBlank]
     #[Assert\Length(max: 512)]
     private string $storageKey = '';
@@ -48,24 +56,29 @@ class Evidencia
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
+    #[Groups(['evidencia:read'])]
     private string $nombreOriginal = '';
 
     #[ORM\Column(length: 127)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 127)]
+    #[Groups(['evidencia:read'])]
     private string $mimeType = '';
 
     #[ORM\Column(type: Types::BIGINT)]
     #[Assert\Positive]
+    #[Groups(['evidencia:read'])]
     private int $tamanoBytes = 0;
 
     #[ORM\Column(length: 64, nullable: true)]
     #[Assert\Length(exactly: 64)]
     #[Assert\Regex(pattern: '/^[a-fA-F0-9]{64}$/D')]
+    #[Groups(['evidencia:read'])]
     private ?string $hashSha256 = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[ApiProperty(writable: false)]
+    #[Groups(['evidencia:read'])]
     private \DateTimeImmutable $createdAt;
 
     public function __construct()
@@ -74,6 +87,10 @@ class Evidencia
     }
 
     public function getId(): ?int { return $this->id; }
+
+    #[ApiProperty(writable: false)]
+    #[Groups(['evidencia:read'])]
+    public function getDownloadUrl(): ?string { return $this->id === null ? null : '/api/evidencias/'.$this->id.'/descargar'; }
 
     public function getRegistro(): ?RegistroAPPCC { return $this->registro; }
 

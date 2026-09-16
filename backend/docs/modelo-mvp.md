@@ -46,15 +46,15 @@ conformidad numérica/booleana. Registro, COMPLETADA, completadaAt, incidencia a
 e historial se confirman juntos. Las violaciones de unicidad se traducen a HTTP 409.
 Los valores decimales siguen siendo strings NUMERIC(12,3); no se recalculan históricos.
 
-Evidencia guarda **solo metadatos**, con exactamente un padre (registro o incidencia),
-FK RESTRICT, tamaño positivo y SHA-256 opcional. Symfony y CHECK PostgreSQL validan XOR.
-No hay subida, lectura de archivos, S3 ni garantía atómica de `requiereFotoNoConforme`
-o firma. HistorialIncidencia es de solo lectura por API; servicio y trigger PostgreSQL
+Evidencia conserva metadatos y archivos locales privados, con exactamente un padre (registro o incidencia),
+FK RESTRICT, tamaño positivo y SHA-256 calculado en servidor para las nuevas subidas. Symfony y CHECK PostgreSQL validan XOR.
+La subida temporal se consume al crear el registro, aplicando foto obligatoria y confirmación auditable.
+Véase [el flujo de evidencias y registros](evidencias-registros.md). HistorialIncidencia es de solo lectura por API; servicio y trigger PostgreSQL
 impiden actualizar o borrar entradas. No se usan cascade remove ni orphanRemoval.
 
 ## Migraciones
 
-El repositorio contiene actualmente nueve migraciones:
+El repositorio contiene actualmente diez migraciones:
 
 1. `Version20260911130812`: crea `EntidadFiscal`.
 2. `Version20260911132708`: crea el modelo APPCC inicial.
@@ -65,6 +65,7 @@ El repositorio contiene actualmente nueve migraciones:
 7. `Version20260912110000`: añade versión optimista y restricciones de calendario en PostgreSQL, sin reescribir la migración anterior ni completar datos heredados arbitrariamente.
 8. `Version20260913100000`: añade auditoría de omisión, CHECK de coherencia e índice de vencimiento por fecha límite, conservando omisiones históricas sin inventar datos.
 9. `Version20260913205925`: añade invitaciones, tokens de configuración inicial de contraseña, normalización de emails y restricciones de integridad.
+10. `Version20260916090000`: añade subidas temporales privadas, confirmación auditable y triggers de inmutabilidad para registros y evidencias.
 
 La séptima migración crea CHECK de rangos, coherencia de frecuencia/días, plazo positivo y hora obligatoria/válida. Usa `NOT VALID` para conservar posibles definiciones heredadas inválidas, y valida cada restricción cuando todos los datos existentes la cumplen. Una restricción aún no validada protege igualmente las nuevas inserciones y actualizaciones. Tras configurar las tareas heredadas debe ejecutarse `ALTER TABLE tarea_appcc VALIDATE CONSTRAINT nombre_del_check`. El esquema Doctrine no sustituye esta comprobación de datos: consultar `pg_constraint.convalidated`.
 
@@ -226,25 +227,10 @@ La revisión, las pruebas y los límites operativos se describen en [revision-ge
 
 No hay todavía un proceso persistente, Messenger ni scheduler integrado. `POR_TURNO` y `POR_RECEPCION` quedan pendientes por requerir, respectivamente, un modelo explícito de turnos y un flujo event-driven. `BAJO_DEMANDA` es manual por diseño.
 
-`Evidencia` representa actualmente los metadatos de una evidencia:
-
-* tipo;
-* `storageKey`;
-* nombre original;
-* MIME type;
-* tamaño;
-* SHA-256 opcional;
-* usuario que la subió;
-* registro o incidencia relacionada.
-
-Todavía no existe almacenamiento físico de archivos, integración con S3 u otro object storage ni verificación de que `storageKey` corresponda realmente a un archivo existente.
-
-Por ello, las opciones `requiereFotoNoConforme` y `requiereFirmaRegistro` todavía no pueden garantizarse de forma atómica.
+El [almacenamiento privado de evidencias](evidencias-registros.md) incluye MIME/tamaño/hash verificados, tokens de un solo consumo, foto obligatoria y confirmación del usuario dentro del registro, descarga protegida, limpieza y verificación. Se requiere volumen persistente; no se implementa almacenamiento de objetos externo.
 
 También permanecen pendientes:
 
-* almacenamiento y descarga real de evidencias;
-* flujo de firma de registros;
 * notificaciones;
 * resumen diario;
 * retención automática de registros;

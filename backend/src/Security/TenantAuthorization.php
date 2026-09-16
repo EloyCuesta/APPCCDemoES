@@ -27,6 +27,13 @@ final readonly class TenantAuthorization
         }
     }
 
+    public function assertOperarRegistros(): void
+    {
+        if (!in_array($this->context->rol(), [RolEstablecimiento::ADMIN, RolEstablecimiento::RESPONSABLE, RolEstablecimiento::TRABAJADOR], true)) {
+            throw new AccessDeniedHttpException('El rol actual no permite registrar controles ni subir evidencias.');
+        }
+    }
+
     /** Operaciones con DTO: el dominio valida solo las relaciones que la operación cambia. */
     public function assertGestionEjecucion(TareaProgramada $programada): void
     {
