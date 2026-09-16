@@ -20,4 +20,17 @@ class UsuarioEstablecimientoRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['usuario' => $usuario, 'establecimiento' => $establecimiento, 'activo' => true]);
     }
+
+    /** @return list<UsuarioEstablecimiento> Contexto del propio usuario; no es una colección pública de tenants. */
+    public function findValidForSession(\App\Entity\Usuario $usuario): array
+    {
+        return $this->createQueryBuilder('m')
+            ->addSelect('e', 'f')
+            ->innerJoin('m.establecimiento', 'e')
+            ->innerJoin('e.entidadFiscal', 'f')
+            ->andWhere('m.usuario = :usuario AND m.activo = true AND e.activo = true AND f.activo = true')
+            ->setParameter('usuario', $usuario)
+            ->orderBy('m.id', 'ASC')
+            ->getQuery()->getResult();
+    }
 }

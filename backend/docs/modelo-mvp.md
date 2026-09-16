@@ -100,7 +100,7 @@ con correo electrónico y contraseña.
 
 Todas las rutas `/api` requieren un usuario autenticado con `ROLE_USER`, salvo los POST de login, onboarding, aceptación de invitación y configuración inicial de contraseña. Véase el [contrato de usuarios](usuarios-onboarding.md).
 
-Las peticiones autenticadas deben indicar además el establecimiento sobre el que trabaja el usuario:
+Tras el login, [`GET /api/me`](contexto-sesion.md) descubre los establecimientos válidos del usuario solo con JWT, sin cabecera tenant. Las peticiones autenticadas a recursos de un establecimiento deben indicar además el establecimiento sobre el que trabaja el usuario:
 
 ```http
 X-Establecimiento-Id: 123

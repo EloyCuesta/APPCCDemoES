@@ -14,7 +14,8 @@ Solo ADMIN gestiona invitaciones y membresías. RESPONSABLE, TRABAJADOR y AUDITO
 cancelarlas, dar bajas, reactivar ni cambiar roles. Las invitaciones solo son consultables por ADMIN.
 Se conservan los permisos de consulta de usuarios/membresías y configuración que ya existían.
 
-Las operaciones autenticadas requieren JWT y `X-Establecimiento-Id`.
+Las operaciones autenticadas por establecimiento requieren JWT y `X-Establecimiento-Id`.
+Después del login, [`GET /api/me`](contexto-sesion.md) permite descubrir las pertenencias propias con JWT, sin cabecera tenant, para seleccionar el establecimiento.
 `CurrentEstablecimientoContext` valida usuario, pertenencia, establecimiento y entidad fiscal activos.
 `TenantAuthorization::assertGestionUsuarios()` centraliza ADMIN y vuelve a consultar los permisos
 tras adquirir el bloqueo del establecimiento: un snapshot anterior a una baja no concede acceso.

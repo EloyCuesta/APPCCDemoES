@@ -28,6 +28,8 @@ security:
     access_control:
         - { path: ^/api/(onboarding|invitaciones/aceptar|auth/configurar-password)$, roles: PUBLIC_ACCESS, methods: [POST] }
         - { path: ^/api/login_check$, roles: PUBLIC_ACCESS, methods: [POST] }
+        # Descubrimiento del contexto: JWT obligatorio; no selecciona un tenant.
+        - { path: ^/api/me$, roles: ROLE_USER, methods: [GET] }
         - { path: ^/api(?:/|$), roles: ROLE_USER }
 
 when@test:
