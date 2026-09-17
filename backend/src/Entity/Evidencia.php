@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
-use ApiPlatform\Metadata\{ApiProperty, ApiResource, Get, GetCollection};
+use ApiPlatform\Metadata\{ApiProperty, ApiResource, Get, Link};
+use App\Api\{ConsultaCollection, IriConsulta, EnumConsulta};
 use App\Enum\TipoEvidencia;
 use App\Repository\EvidenciaRepository;
 use Doctrine\DBAL\Types\Types;
@@ -15,7 +16,18 @@ use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: EvidenciaRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-#[ApiResource(operations: [new GetCollection(uriTemplate: '/evidencias'), new Get(uriTemplate: '/evidencias/{id}', requirements: ['id' => '[1-9][0-9]*'])], normalizationContext: ['groups' => ['evidencia:read']])]
+#[ApiResource(operations: [
+    new ConsultaCollection(uriTemplate: '/evidencias', parameters: [
+        'registro' => new IriConsulta('registro', '/api/registros'),
+        'incidencia' => new IriConsulta('incidencia', '/api/incidencias'),
+        'tipo' => new EnumConsulta('tipo', TipoEvidencia::class),
+    ]),
+    new ConsultaCollection(uriTemplate: '/registros/{id}/evidencias',
+        uriVariables: ['id' => new Link(fromClass: RegistroAPPCC::class, toProperty: 'registro')], parameters: [
+            'tipo' => new EnumConsulta('tipo', TipoEvidencia::class),
+        ]),
+    new Get(uriTemplate: '/evidencias/{id}', requirements: ['id' => '[1-9][0-9]*']),
+], normalizationContext: ['groups' => ['evidencia:read']])]
 class Evidencia
 {
     #[ORM\Id]

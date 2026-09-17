@@ -21,6 +21,7 @@ services:
         exclude:
             - '../src/Entity/'
             - '../src/Dto/'
+            - '../src/Api/'
             - '../src/Service/ResultadoGeneracion.php'
 
     # add more service definitions when explicit configuration is needed

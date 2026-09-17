@@ -7,7 +7,8 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
+use App\Api\{ConsultaCollection, IriConsulta, FechaConsulta};
 use ApiPlatform\Metadata\Post;
 use App\Repository\AccionCorrectivaRepository;
 use App\State\Processor\AccionCorrectivaProcessor;
@@ -17,7 +18,18 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AccionCorrectivaRepository::class)]
 #[ApiResource(operations: [
-    new GetCollection(uriTemplate: '/acciones-correctivas'),
+    new ConsultaCollection(uriTemplate: '/acciones-correctivas', parameters: [
+        'incidencia' => new IriConsulta('incidencia', '/api/incidencias'),
+        'usuario' => new IriConsulta('usuario', '/api/usuarios'),
+        'fechaHora[after]' => new FechaConsulta('fechaHora'),
+        'fechaHora[before]' => new FechaConsulta('fechaHora'),
+    ], order: ['fechaHora' => 'ASC', 'id' => 'ASC']),
+    new ConsultaCollection(uriTemplate: '/incidencias/{id}/acciones',
+        uriVariables: ['id' => new Link(fromClass: Incidencia::class, toProperty: 'incidencia')], parameters: [
+            'usuario' => new IriConsulta('usuario', '/api/usuarios'),
+            'fechaHora[after]' => new FechaConsulta('fechaHora'),
+            'fechaHora[before]' => new FechaConsulta('fechaHora'),
+        ], order: ['fechaHora' => 'ASC', 'id' => 'ASC']),
     new Post(uriTemplate: '/acciones-correctivas', validate: false, processor: AccionCorrectivaProcessor::class),
     new Get(uriTemplate: '/acciones-correctivas/{id}'),
 ])]

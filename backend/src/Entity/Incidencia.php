@@ -7,7 +7,7 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
+use App\Api\{ConsultaCollection, IriConsulta, EnumConsulta, FechaConsulta, OrdenConsulta};
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Enum\GravedadIncidencia;
@@ -25,7 +25,14 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Index(name: 'idx_incidencia_agenda', columns: ['establecimiento_id', 'estado', 'fecha_apertura'])]
 #[ORM\Entity(repositoryClass: IncidenciaRepository::class)]
 #[ApiResource(operations: [
-    new GetCollection(uriTemplate: '/incidencias'),
+    new ConsultaCollection(uriTemplate: '/incidencias', parameters: [
+        'estado' => new EnumConsulta('estado', EstadoIncidencia::class),
+        'gravedad' => new EnumConsulta('gravedad', GravedadIncidencia::class),
+        'registro' => new IriConsulta('registro', '/api/registros'),
+        'fechaApertura[after]' => new FechaConsulta('fechaApertura'),
+        'fechaApertura[before]' => new FechaConsulta('fechaApertura'),
+        'order[fechaApertura]' => new OrdenConsulta('fechaApertura'),
+    ], order: ['fechaApertura' => 'DESC', 'id' => 'ASC']),
     new Post(uriTemplate: '/incidencias', validate: false, processor: IncidenciaProcessor::class),
     new Get(uriTemplate: '/incidencias/{id}'),
     new Patch(uriTemplate: '/incidencias/{id}', validate: false, processor: IncidenciaProcessor::class),

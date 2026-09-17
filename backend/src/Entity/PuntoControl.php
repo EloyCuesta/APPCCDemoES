@@ -7,7 +7,7 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
+use App\Api\{ConsultaCollection, BooleanoConsulta, OrdenConsulta};
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Enum\TipoPuntoControl;
@@ -21,7 +21,10 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: PuntoControlRepository::class)]
 #[ApiResource(operations: [
-    new GetCollection(uriTemplate: '/puntos-control'),
+    new ConsultaCollection(uriTemplate: '/puntos-control', parameters: [
+        'activo' => new BooleanoConsulta('activo'),
+        'order[nombre]' => new OrdenConsulta('nombre'),
+    ], order: ['nombre' => 'ASC', 'id' => 'ASC']),
     new Post(uriTemplate: '/puntos-control'),
     new Get(uriTemplate: '/puntos-control/{id}'),
     new Patch(uriTemplate: '/puntos-control/{id}'),

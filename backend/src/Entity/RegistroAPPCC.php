@@ -7,7 +7,7 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
+use App\Api\{ConsultaCollection, IriConsulta, BooleanoConsulta, FechaConsulta, OrdenConsulta};
 use ApiPlatform\Metadata\Post;
 use App\Repository\RegistroAPPCCRepository;
 use App\State\Processor\RegistrarControlProcessor;
@@ -23,7 +23,15 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Index(name: 'idx_registro_confirmado_por', columns: ['confirmado_por_id'])]
 #[ORM\Entity(repositoryClass: RegistroAPPCCRepository::class)]
 #[ApiResource(operations: [
-    new GetCollection(uriTemplate: '/registros'),
+    new ConsultaCollection(uriTemplate: '/registros', parameters: [
+        'tareaProgramada' => new IriConsulta('tareaProgramada', '/api/tareas-programadas'),
+        'tarea' => new IriConsulta('tareaProgramada.tarea', '/api/tareas'),
+        'usuario' => new IriConsulta('usuario', '/api/usuarios'),
+        'conforme' => new BooleanoConsulta('conforme'),
+        'fechaHora[after]' => new FechaConsulta('fechaHora'),
+        'fechaHora[before]' => new FechaConsulta('fechaHora'),
+        'order[fechaHora]' => new OrdenConsulta('fechaHora'),
+    ], order: ['fechaHora' => 'DESC', 'id' => 'ASC']),
     new Post(uriTemplate: '/registros', input: \App\Dto\CrearRegistroInput::class, validate: false,
         denormalizationContext: ['allow_extra_attributes' => false], securityPostDenormalize: "is_granted('ROLE_USER')", processor: RegistrarControlProcessor::class),
     new Get(uriTemplate: '/registros/{id}'),

@@ -2,6 +2,8 @@
 
 El flujo de [usuarios y onboarding](usuarios-onboarding.md) añade invitaciones, configuración inicial de contraseña y gestión transaccional de membresías.
 
+Las [consultas del frontend](consultas-mvp.md) documentan filtros, orden, paginación SQL y subrecursos de lectura del MVP `0.1.0-mvp`.
+
 Modelo revisado sobre `main`, incluido el [ciclo operativo de tareas](ciclo-operativo-tareas.md) desde `29f4228`. Backend PHP 8.3,
 Symfony 7.4, API Platform 4.3, Doctrine ORM 3.7/DBAL 4.4 y PostgreSQL **18.3**.
 Se mantienen identificadores enteros y las migraciones anteriores; las ampliaciones

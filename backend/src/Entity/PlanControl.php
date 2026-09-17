@@ -7,7 +7,7 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
+use App\Api\{ConsultaCollection, BooleanoConsulta, OrdenConsulta};
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Enum\TipoPlanControl;
@@ -22,7 +22,10 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Entity(repositoryClass: PlanControlRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ApiResource(operations: [
-    new GetCollection(uriTemplate: '/planes-control'),
+    new ConsultaCollection(uriTemplate: '/planes-control', parameters: [
+        'activo' => new BooleanoConsulta('activo'),
+        'order[nombre]' => new OrdenConsulta('nombre'),
+    ], order: ['nombre' => 'ASC', 'id' => 'ASC']),
     new Post(uriTemplate: '/planes-control'),
     new Get(uriTemplate: '/planes-control/{id}'),
     new Patch(uriTemplate: '/planes-control/{id}'),

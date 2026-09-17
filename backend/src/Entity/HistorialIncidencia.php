@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
-use ApiPlatform\Metadata\{ApiProperty, ApiResource, Get, GetCollection};
+use ApiPlatform\Metadata\{ApiProperty, ApiResource, Get, Link};
+use App\Api\{ConsultaCollection, IriConsulta, OrdenConsulta};
 use App\Enum\EstadoIncidencia;
 use App\Repository\HistorialIncidenciaRepository;
 use Doctrine\DBAL\Types\Types;
@@ -12,7 +13,17 @@ use Doctrine\ORM\Mapping as ORM;
 
 /** Append-only: se construye en el servicio y no ofrece mutadores ni escritura API. */
 #[ORM\Entity(repositoryClass: HistorialIncidenciaRepository::class)]
-#[ApiResource(operations: [new GetCollection(uriTemplate: '/historiales-incidencia'), new Get(uriTemplate: '/historiales-incidencia/{id}')])]
+#[ApiResource(operations: [
+    new ConsultaCollection(uriTemplate: '/historiales-incidencia', parameters: [
+        'incidencia' => new IriConsulta('incidencia', '/api/incidencias'),
+        'order[createdAt]' => new OrdenConsulta('createdAt'),
+    ], order: ['createdAt' => 'ASC', 'id' => 'ASC']),
+    new ConsultaCollection(uriTemplate: '/incidencias/{id}/historial',
+        uriVariables: ['id' => new Link(fromClass: Incidencia::class, toProperty: 'incidencia')], parameters: [
+            'order[createdAt]' => new OrdenConsulta('createdAt'),
+        ], order: ['createdAt' => 'ASC', 'id' => 'ASC']),
+    new Get(uriTemplate: '/historiales-incidencia/{id}'),
+])]
 class HistorialIncidencia
 {
     #[ORM\Id]
