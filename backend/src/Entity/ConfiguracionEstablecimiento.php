@@ -64,8 +64,9 @@ class ConfiguracionEstablecimiento
     #[ORM\Column(options: ['default' => true])]
     private bool $requiereObservacionNoConforme = true;
 
-    #[ORM\Column(options: ['default' => false])]
-    private bool $requiereFotoNoConforme = false;
+    #[ORM\Column(options: ['default' => true])]
+    #[ApiProperty(description: 'Siempre true: toda no conformidad exige una fotografía validada.')]
+    private bool $requiereFotoNoConforme = true;
 
     #[ORM\Column(options: ['default' => false])]
     private bool $permitirCerrarIncidenciaSinAccion = false;
@@ -211,6 +212,9 @@ class ConfiguracionEstablecimiento
 
     public function setRequiereFotoNoConforme(bool $requiereFotoNoConforme): static
     {
+        if (!$requiereFotoNoConforme) {
+            throw new \App\Exception\BusinessRuleException('La fotografía es obligatoria en toda no conformidad y no puede desactivarse.');
+        }
         $this->requiereFotoNoConforme = $requiereFotoNoConforme;
 
         return $this;

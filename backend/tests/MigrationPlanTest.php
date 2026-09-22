@@ -75,7 +75,7 @@ final class MigrationPlanTest extends PostgresTestCase
 
     public function testDownRechazaPerdidaDeDatos(): void
     {
-        $this->registrar('9');
+        $this->registrarConFoto('9');
         try { $this->executeMigration('Version20260912083224', 'down'); self::fail('No debe borrar históricos.'); }
         catch (\Doctrine\DBAL\Exception\DriverException $e) { self::assertStringContainsString('Reversión bloqueada', $e->getMessage()); }
         self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM registro_appcc'));

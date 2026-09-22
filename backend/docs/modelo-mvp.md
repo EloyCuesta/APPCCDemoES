@@ -56,7 +56,7 @@ impiden actualizar o borrar entradas. No se usan cascade remove ni orphanRemoval
 
 ## Migraciones
 
-El repositorio contiene actualmente diez migraciones:
+El repositorio contiene actualmente once migraciones:
 
 1. `Version20260911130812`: crea `EntidadFiscal`.
 2. `Version20260911132708`: crea el modelo APPCC inicial.
@@ -68,6 +68,7 @@ El repositorio contiene actualmente diez migraciones:
 8. `Version20260913100000`: añade auditoría de omisión, CHECK de coherencia e índice de vencimiento por fecha límite, conservando omisiones históricas sin inventar datos.
 9. `Version20260913205925`: añade invitaciones, tokens de configuración inicial de contraseña, normalización de emails y restricciones de integridad.
 10. `Version20260916090000`: añade subidas temporales privadas, confirmación auditable y triggers de inmutabilidad para registros y evidencias.
+11. `Version20260922090000`: añade códigos de catálogo, recibos de aplicación idempotente, controles pendientes de límites y fotografía no desactivable con actualización de configuraciones existentes. Las [plantillas iniciales](plantillas-iniciales.md) se cargan mediante `app:plantillas:cargar`.
 
 La séptima migración crea CHECK de rangos, coherencia de frecuencia/días, plazo positivo y hora obligatoria/válida. Usa `NOT VALID` para conservar posibles definiciones heredadas inválidas, y valida cada restricción cuando todos los datos existentes la cumplen. Una restricción aún no validada protege igualmente las nuevas inserciones y actualizaciones. Tras configurar las tareas heredadas debe ejecutarse `ALTER TABLE tarea_appcc VALIDATE CONSTRAINT nombre_del_check`. El esquema Doctrine no sustituye esta comprobación de datos: consultar `pg_constraint.convalidated`.
 

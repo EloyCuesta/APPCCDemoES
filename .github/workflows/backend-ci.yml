@@ -90,5 +90,8 @@ jobs:
       - name: Validate Doctrine schema
         run: php bin/console doctrine:schema:validate
 
+      - name: Load initial APPCC templates
+        run: php bin/console app:plantillas:cargar
+
       - name: Run PHPUnit
         run: php bin/phpunit

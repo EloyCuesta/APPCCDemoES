@@ -41,8 +41,11 @@ final class MvpModelTest extends PostgresTestCase
         self::getContainer()->get(PlantillaAPPCCService::class)->aplicar($plantilla, $this->local);
         self::assertSame(2, $this->em->getRepository(TareaAPPCC::class)->count(['establecimiento' => $this->local]));
         self::assertSame(0, $this->em->getRepository(TareaProgramada::class)->count([]));
-        $this->expectException(\App\Exception\BusinessRuleException::class);
-        self::getContainer()->get(PlantillaAPPCCService::class)->aplicar($plantilla, $this->local);
+        $repetida = self::getContainer()->get(PlantillaAPPCCService::class)->aplicar($plantilla, $this->local);
+        self::assertTrue($repetida['yaAplicada']);
+        self::assertSame([], $repetida['tareas']);
+        self::assertSame(2, $this->em->getRepository(TareaAPPCC::class)->count(['establecimiento' => $this->local]));
+        self::assertSame(0, $this->em->getRepository(TareaProgramada::class)->count([]));
     }
 
     public function testRollbackOnboardingConPlantillaInvalida(): void

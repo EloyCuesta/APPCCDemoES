@@ -13,7 +13,7 @@ final class MembresiasTest extends UsuariosApiTestCase
         $this->segundoAdmin();
         $p = $this->programar('-1 minute');
         $v = $this->programar('-2 minutes'); $v->cambiarEstado(\App\Enum\EstadoTareaProgramada::VENCIDA);
-        $registro = $this->registrar('9', '-3 minutes'); $c = $registro->getTareaProgramada();
+        $registro = $this->registrarConFoto('9', '-3 minutes'); $c = $registro->getTareaProgramada();
         $o = $this->programar('-4 minutes'); $o->omitir('Cierre', $this->usuario, $this->clock->now());
         $otraMembresia = (new UsuarioEstablecimiento())->setUsuario($this->usuario)->setEstablecimiento($this->otroLocal)->setRol(\App\Enum\RolEstablecimiento::TRABAJADOR);
         $this->em->persist($otraMembresia); $this->em->flush();

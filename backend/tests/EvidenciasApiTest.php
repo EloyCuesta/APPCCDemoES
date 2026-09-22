@@ -135,7 +135,6 @@ final class EvidenciasApiTest extends PostgresTestCase
 
     public function testFotoObligatoriaDevuelve422(): void
     {
-        $this->local->getConfiguracion()->setRequiereFotoNoConforme(true); $this->em->flush();
         $r = $this->json($this->enviarRegistro(['valorNumerico' => '9']), 422);
         self::assertStringContainsString('fotografía', $r['detail']);
     }

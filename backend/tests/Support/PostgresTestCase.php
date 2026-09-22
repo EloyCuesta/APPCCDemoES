@@ -30,6 +30,11 @@ abstract class PostgresTestCase extends KernelTestCase
         $this->clock = new MockClock('2026-09-12T10:00:00+00:00');
         Clock::set($this->clock);
         self::bootKernel();
+        // Los workers HTTP comparten caché: preparar matcher Y generador antes de
+        // lanzarlos evita renombrados simultáneos de archivos bloqueados en Windows.
+        $router = self::getContainer()->get('router');
+        $router->getMatcher();
+        $router->getGenerator();
         $this->em = self::getContainer()->get('doctrine')->getManager();
         PostgresSafety::truncate($this->em->getConnection());
         $this->usuario = (new Usuario())->setNombre('Ana')->setApellidos('García')->setEmail('ANA@example.com');
@@ -72,6 +77,19 @@ abstract class PostgresTestCase extends KernelTestCase
     protected function registrar(string $valor = '3', string $when = '-1 minute'): RegistroAPPCC
     {
         return self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($this->programar($when), $valor));
+    }
+
+    protected function foto(): array
+    {
+        $subida = self::getContainer()->get(\App\Service\SubidaEvidenciaService::class)->subir(
+            EvidenciaFixtures::archivo(), \App\Enum\TipoEvidencia::FOTO, $this->usuario, $this->local);
+        return ['token' => $subida['token'], 'tipo' => 'foto'];
+    }
+
+    protected function registrarConFoto(string $valor = '9', string $when = '-1 minute'): RegistroAPPCC
+    {
+        $foto = $this->foto();
+        return self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($this->programar($when), $valor), [$foto]);
     }
 
     protected function tearDown(): void

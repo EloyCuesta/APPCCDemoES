@@ -119,7 +119,7 @@ Las respuestas de API incluyen `X-Establecimiento-Id` en la configuración `Vary
 * registros atrasados;
 * generación automática de incidencias;
 * obligatoriedad de observaciones;
-* obligatoriedad de fotografía;
+* fotografía obligatoria en toda no conformidad (regla fija, no desactivable);
 * cierre de incidencias;
 * avisos de tareas.
 
@@ -136,7 +136,7 @@ RegistroAPPCC
 Incidencia
 ```
 
-El servidor calcula MIME, tamaño y hash. `requiereFotoNoConforme` y `requiereFirmaRegistro` se aplican al crear el registro, con compensación de archivos si se revierte SQL. Véase [evidencias y confirmación](evidencias-registros.md) para configuración, endpoints, persistencia y límites operativos.
+El servidor calcula MIME, tamaño y hash. Toda no conformidad exige foto; `requiereFotoNoConforme` permanece a `true`, también en configuraciones existentes. `requiereFirmaRegistro` sigue siendo configurable. Ambas reglas se aplican al crear el registro, con compensación de archivos si se revierte SQL. Véase [evidencias y confirmación](evidencias-registros.md) para endpoints, persistencia y límites operativos.
 
 ## Programación de tareas
 

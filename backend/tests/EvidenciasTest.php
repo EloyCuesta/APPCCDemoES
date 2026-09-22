@@ -154,12 +154,23 @@ final class EvidenciasTest extends PostgresTestCase
     }
 
     #[DataProvider('sinFotoPermitida')]
-    public function testPuedeRegistrarSinFotoSegunConformidadYConfiguracion(string $valor, bool $obligatoria): void
+    public function testSoloConformesSinFotoInclusoConConfiguracionManipulada(string $valor, bool $obligatoria): void
     {
-        $this->local->getConfiguracion()->setRequiereFotoNoConforme($obligatoria); $this->em->flush();
+        $programada = $this->programar();
+        // Incluso una configuración heredada/alterada en memoria no exime de aportar foto.
+        $config = $this->local->getConfiguracion();
+        (new \ReflectionProperty($config, 'requiereFotoNoConforme'))->setValue($config, $obligatoria);
+        if ($valor === '9') {
+            $this->expectException(BusinessRuleException::class);
+            $this->expectExceptionMessage('fotografía');
+            self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($programada, $valor));
+            return;
+        }
+        // Restaurar el flag antes del flush: PostgreSQL tampoco permite desactivarlo.
+        $config->setRequiereFotoNoConforme(true);
         self::assertNotNull($this->crear([], $valor)->getId());
     }
-    public static function sinFotoPermitida(): array { return [['3', true], ['3', false], ['9', false]]; }
+    public static function sinFotoPermitida(): array { return [['3', true], ['3', false], ['9', false], ['9', true]]; }
 
     #[DataProvider('sinFotoValida')]
     public function testFotoObligatoriaNoSeSustituyePorPdf(bool $pdf): void

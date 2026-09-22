@@ -135,10 +135,11 @@ final class SecurityTest extends PostgresTestCase
     public function testUsuarioDelRegistroProcedeDelJwt(): void
     {
         $p = $this->ownProgrammed();
+        $foto = $this->foto();
         $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'establecimiento' => '/api/establecimientos/'.$this->local->getId(), 'usuario' => '/api/usuarios/'.$this->otroUsuario->getId(), 'valorNumerico' => '9', 'observaciones' => 'Fuera de rango']);
         self::assertSame(400, $r->getStatusCode(), 'Ahora la suplantación se rechaza explícitamente.');
         self::assertSame(0, $this->em->getRepository(RegistroAPPCC::class)->count([]));
-        $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'valorNumerico' => '9', 'observaciones' => 'Fuera de rango']);
+        $r = $this->api('POST', '/api/registros', ['tareaProgramada' => '/api/tareas-programadas/'.$p->getId(), 'valorNumerico' => '9', 'observaciones' => 'Fuera de rango', 'evidencias' => [$foto]]);
         self::assertSame(201, $r->getStatusCode());
         $record = $this->em->getRepository(RegistroAPPCC::class)->findOneBy([]);
         self::assertSame($this->usuario->getId(), $record->getUsuario()->getId());
@@ -165,7 +166,8 @@ final class SecurityTest extends PostgresTestCase
     public function testResponsableResuelveIncidenciaYAutorDelHistorial(): void
     {
         $p = $this->ownProgrammed();
-        $record = self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($p, '9'));
+        $foto = $this->foto();
+        $record = self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($p, '9'), [$foto]);
         $i = $record->getIncidencias()->first();
         $this->local->getConfiguracion()->setPermitirCerrarIncidenciaSinAccion(true); $this->em->flush();
         $this->role(RolEstablecimiento::RESPONSABLE);
@@ -242,7 +244,7 @@ final class SecurityTest extends PostgresTestCase
                 $this->em->persist($plan); $this->em->persist($task); $this->em->flush();
             }
             $this->local = $local; $this->usuario = $user; $this->tarea = $task;
-            $record = $this->registrar('9');
+            $record = $this->registrarConFoto('9');
             $incident = $record->getIncidencias()->first();
             $action = self::getContainer()->get(\App\Service\AccionCorrectivaService::class)->anadir((new AccionCorrectiva())->setIncidencia($incident)->setUsuario($user)->setDescripcion('Acción de prueba'));
             // Fixture de una evidencia histórica de incidencia, con un archivo real privado.

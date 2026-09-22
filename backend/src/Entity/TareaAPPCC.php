@@ -126,6 +126,25 @@ class TareaAPPCC
     #[ORM\Column(options: ['default' => true])]
     private bool $activa = true;
 
+    #[ORM\Column(options: ['default' => false])]
+    #[ApiProperty(writable: false, description: 'La plantilla exige límites propios, unidad e instrucciones antes de activar este control.')]
+    private bool $requiereLimites = false;
+
+    public function isRequiereLimites(): bool { return $this->requiereLimites; }
+
+    // Solo la carga de plantillas establece esta marca; no se admite en la API.
+    public function exigirLimites(): void { $this->requiereLimites = true; }
+
+    #[ApiProperty(writable: false)]
+    public function isConfiguracionPendiente(): bool
+    {
+        return $this->requiereLimites && (
+            ($this->configuracion['tipoRespuesta'] ?? null) !== 'numero'
+            || ($this->limiteMinimo === null && $this->limiteMaximo === null)
+            || trim($this->unidad ?? '') === '' || trim($this->instrucciones ?? '') === ''
+        );
+    }
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[ApiProperty(writable: false)]
     private \DateTimeImmutable $createdAt;
@@ -413,6 +432,10 @@ class TareaAPPCC
     #[Assert\Callback]
     public function validate(ExecutionContextInterface $context, mixed $payload): void
     {
+        if ($this->activa && $this->isConfiguracionPendiente()) {
+            $context->buildViolation('Configure la respuesta numérica, al menos un límite, la unidad y las instrucciones propias del establecimiento antes de activar el control.')
+                ->atPath('activa')->addViolation();
+        }
         if ($this->horaPrevista !== null && $this->horaPrevista->format('u') !== '000000') {
             $context->buildViolation('La hora prevista debe tener precisión de segundos.')->atPath('horaPrevista')->addViolation();
         }

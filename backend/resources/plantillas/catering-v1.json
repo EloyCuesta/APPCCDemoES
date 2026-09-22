@@ -1,0 +1,161 @@
+{
+    "codigo": "catering-v1",
+    "nombre": "Catering · inicio APPCC v1",
+    "descripcion": "Base de trabajo adaptable al establecimiento; no sustituye su evaluación de riesgos. Revise puntos, horarios, frecuencias e instrucciones. Los controles numéricos se crean inactivos y sin límites; debe configurar límites propios antes de activarlos.",
+    "configuracion": {
+        "puntosControl": [
+            {
+                "clave": "frio",
+                "nombre": "Inicial · Equipo de conservación en frío",
+                "tipo": "camara_frigorifica",
+                "descripcion": "Identifique el equipo real y los productos conservados; duplique controles si hay varios equipos."
+            },
+            {
+                "clave": "recepcion",
+                "nombre": "Inicial · Recepción de materias primas",
+                "tipo": "recepcion"
+            },
+            {
+                "clave": "zona",
+                "nombre": "Inicial · Zona de preparación y expedición",
+                "tipo": "zona"
+            },
+            {
+                "clave": "equipo",
+                "nombre": "Inicial · Contenedores y equipos de transporte",
+                "tipo": "equipo"
+            }
+        ],
+        "planes": [
+            {
+                "nombre": "Inicial · Control de temperaturas",
+                "tipo": "temperaturas",
+                "descripcion": "Límites pendientes de validación para productos, equipos y procesos del establecimiento.",
+                "tareas": [
+                    {
+                        "nombre": "Revisar temperatura de conservación",
+                        "frecuencia": "diaria",
+                        "horaPrevista": "09:00:00",
+                        "puntoControl": "frio",
+                        "requiereLimites": true,
+                        "unidad": "°C",
+                        "instrucciones": "Identifique equipo, productos y método de medida. Configure límites propios y revise el horario antes de activar.",
+                        "configuracion": {
+                            "tipoRespuesta": "numero"
+                        }
+                    },
+                    {
+                        "nombre": "Temperatura a la salida del transporte",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "equipo",
+                        "requiereLimites": true,
+                        "unidad": "°C",
+                        "instrucciones": "Identifique evento, alimento, equipo y recorrido. Configure límites propios y protocolo de transporte antes de activar.",
+                        "configuracion": {
+                            "tipoRespuesta": "numero"
+                        }
+                    },
+                    {
+                        "nombre": "Temperatura durante el servicio",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "zona",
+                        "requiereLimites": true,
+                        "unidad": "°C",
+                        "instrucciones": "Identifique alimento y modalidad de conservación durante el evento. Configure límites y método de medida según el plan del establecimiento.",
+                        "configuracion": {
+                            "tipoRespuesta": "numero"
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Limpieza y desinfección",
+                "tipo": "limpieza",
+                "tareas": [
+                    {
+                        "nombre": "Limpieza de contenedores y zona de expedición",
+                        "frecuencia": "diaria",
+                        "horaPrevista": "18:00:00",
+                        "puntoControl": "zona",
+                        "instrucciones": "Compruebe la ejecución del procedimiento de limpieza y desinfección del establecimiento, incluidos productos y métodos autorizados para el uso previsto. Registre false ante incumplimiento.",
+                        "configuracion": {
+                            "tipoRespuesta": "boolean"
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Recepción de materias primas",
+                "tipo": "recepcion",
+                "tareas": [
+                    {
+                        "nombre": "Verificar cada recepción",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "recepcion",
+                        "instrucciones": "Revise proveedor, identificación de lotes, integridad, etiquetado y condiciones de recepción según las especificaciones acordadas. Evalúe explícitamente la conformidad.",
+                        "configuracion": {
+                            "campos": [
+                                "proveedor",
+                                "producto",
+                                "lote",
+                                "condicionesRecepcion"
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Gestión de alérgenos",
+                "tipo": "alergenos",
+                "tareas": [
+                    {
+                        "nombre": "Verificar identificación de menús y alérgenos del evento",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "zona",
+                        "instrucciones": "Contraste ingredientes y fichas actualizadas, separación, utensilios e identificación. Registre false si existe un incumplimiento.",
+                        "configuracion": {
+                            "tipoRespuesta": "boolean"
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Trazabilidad",
+                "tipo": "trazabilidad",
+                "tareas": [
+                    {
+                        "nombre": "Trazabilidad de expediciones y eventos",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "zona",
+                        "instrucciones": "Vincule los lotes de entrada con la elaboración o expedición. Compruebe que pueda reconstruirse el recorrido del producto e indique la conformidad.",
+                        "configuracion": {
+                            "campos": [
+                                "evento",
+                                "destino",
+                                "lotes",
+                                "fechaExpedicion"
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Mantenimiento y verificación",
+                "tipo": "mantenimiento",
+                "tareas": [
+                    {
+                        "nombre": "Revisar equipos e instrumentos",
+                        "frecuencia": "semanal",
+                        "puntoControl": "equipo",
+                        "instrucciones": "Compruebe estado, incidencias y verificaciones previstas en el plan de mantenimiento. Adapte la periodicidad al equipo.",
+                        "configuracion": {
+                            "tipoRespuesta": "boolean"
+                        },
+                        "diaSemana": 1,
+                        "horaPrevista": "09:00:00"
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -88,7 +88,7 @@ final readonly class RegistroAPPCCService
                 }
                 if ($registro->getConfirmadoAt() !== null) { throw new BusinessRuleException('La confirmación debe establecerse por el servidor durante el registro.'); }
                 $subidas = $this->subidas->bloquear($evidencias, $usuario, $local);
-                if (!$registro->isConforme() && $config->isRequiereFotoNoConforme()
+                if (!$registro->isConforme()
                     && array_filter($subidas, static fn ($s) => $s->getTipo() === \App\Enum\TipoEvidencia::FOTO) === []) {
                     throw new BusinessRuleException('El registro no conforme requiere al menos una fotografía válida.');
                 }

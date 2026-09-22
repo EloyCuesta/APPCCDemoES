@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Entity\Establecimiento;
+use App\Entity\AplicacionPlantillaAPPCC;
 use App\Entity\PlanControl;
 use App\Entity\PlantillaAPPCC;
 use App\Entity\PuntoControl;
@@ -35,10 +36,35 @@ final readonly class PlantillaAPPCCService
         private ValidacionDominio $validacion,
         private TransaccionAPPCC $transaccion,
         private ClockInterface $clock,
+        private \App\Security\TenantAuthorization $authorization,
     ) {
     }
 
-    /** @return array{planes: list<PlanControl>, puntos: list<PuntoControl>, tareas: list<TareaAPPCC>} */
+    /** Catálogo versionado: repetir la carga conserva IDs, configuración y activación existentes.
+     * @return list<PlantillaAPPCC>
+     */
+    public function cargarIniciales(): array
+    {
+        return $this->transaccion->ejecutar(function (): array {
+            $this->em->getConnection()->executeQuery('SELECT pg_advisory_xact_lock(20260922, 1)');
+            $resultado = [];
+            foreach (['restaurante', 'obrador', 'catering'] as $actividad) {
+                $input = json_decode(file_get_contents(dirname(__DIR__, 2).'/resources/plantillas/'.$actividad.'-v1.json'), true, flags: JSON_THROW_ON_ERROR);
+                $plantilla = $this->plantillas->findOneBy(['codigo' => $input['codigo']]);
+                if ($plantilla === null) {
+                    $plantilla = (new PlantillaAPPCC())->setCodigo($input['codigo'])->setNombre($input['nombre'])
+                        ->setTipoActividad(TipoActividad::from($actividad))->setDescripcion($input['descripcion'])
+                        ->setConfiguracion($input['configuracion'])->setCreatedAt($this->clock->now());
+                    $this->validacion->validar($plantilla);
+                    $this->em->persist($plantilla);
+                }
+                $resultado[] = $plantilla;
+            }
+            return $resultado;
+        });
+    }
+
+    /** @return array{planes: list<PlanControl>, puntos: list<PuntoControl>, tareas: list<TareaAPPCC>, aplicacion: AplicacionPlantillaAPPCC, yaAplicada: bool} */
     public function aplicar(PlantillaAPPCC $plantilla, Establecimiento $establecimiento): array
     {
         $plantilla = $plantilla->getId() === null ? null : $this->plantillas->find($plantilla->getId());
@@ -50,17 +76,25 @@ final readonly class PlantillaAPPCCService
         } elseif (!$this->em->getUnitOfWork()->isScheduledForInsert($establecimiento)) {
             throw new BusinessRuleException('El establecimiento debe pertenecer al onboarding o estar persistido.');
         }
-        if (!$establecimiento->isActivo()) {
-            throw new BusinessRuleException('El establecimiento está inactivo.');
-        }
-        if ($plantilla->getTipoActividad() !== TipoActividad::OTRO && $plantilla->getTipoActividad() !== $establecimiento->getTipoActividad()) {
-            throw new BusinessRuleException('La plantilla no es compatible con el tipo de actividad del establecimiento.');
-        }
-
         return $this->transaccion->ejecutar(function () use ($plantilla, $establecimiento): array {
             if ($establecimiento->getId() !== null) {
                 // Serializar aplicaciones concurrentes sobre el mismo local en PostgreSQL.
-                $this->em->lock($establecimiento, LockMode::PESSIMISTIC_WRITE);
+                $this->em->getConnection()->fetchOne('SELECT id FROM establecimiento WHERE id = ? FOR UPDATE', [$establecimiento->getId()]);
+                $this->em->refresh($establecimiento);
+                $this->authorization->assertAplicarPlantilla($establecimiento);
+            }
+            $this->em->refresh($plantilla, LockMode::PESSIMISTIC_READ);
+            if (!$plantilla->isActiva() || !$establecimiento->isActivo()) {
+                throw new BusinessRuleException('La plantilla o el establecimiento están inactivos.');
+            }
+            if ($plantilla->getTipoActividad() !== TipoActividad::OTRO && $plantilla->getTipoActividad() !== $establecimiento->getTipoActividad()) {
+                throw new BusinessRuleException('La plantilla no es compatible con el tipo de actividad del establecimiento.');
+            }
+            if ($establecimiento->getId() !== null) {
+                $previa = $this->em->getRepository(AplicacionPlantillaAPPCC::class)->findOneBy(['plantilla' => $plantilla, 'establecimiento' => $establecimiento]);
+                if ($previa !== null) {
+                    return ['planes' => [], 'puntos' => [], 'tareas' => [], 'aplicacion' => $previa, 'yaAplicada' => true];
+                }
             }
             $config = $plantilla->getConfiguracion();
             $this->claves($config, ['planes', 'puntosControl']);
@@ -127,14 +161,31 @@ final readonly class PlantillaAPPCCService
                 }
             }
 
-            return $resultado;
+            // Necesitamos los identificadores para el recibo. Este flush sigue dentro de
+            // la transacción exterior (también en onboarding); no confirma nada por sí solo.
+            $this->em->flush();
+            $resumen = [];
+            foreach (['planes' => '/api/planes-control/', 'puntos' => '/api/puntos-control/', 'tareas' => '/api/tareas/'] as $tipo => $prefijo) {
+                $resumen[$tipo] = array_map(static function ($recurso) use ($prefijo): array {
+                    $item = ['id' => $recurso->getId(), 'iri' => $prefijo.$recurso->getId(), 'nombre' => $recurso->getNombre()];
+                    if ($recurso instanceof TareaAPPCC) {
+                        $item += ['activa' => $recurso->isActiva(), 'configuracionPendiente' => $recurso->isConfiguracionPendiente(),
+                            'planControl' => '/api/planes-control/'.$recurso->getPlanControl()->getId(),
+                            'puntoControl' => $recurso->getPuntoControl() === null ? null : '/api/puntos-control/'.$recurso->getPuntoControl()->getId()];
+                    }
+                    return $item;
+                }, $resultado[$tipo]);
+            }
+            $aplicacion = new AplicacionPlantillaAPPCC($plantilla, $establecimiento, $resumen, $this->clock->now());
+            $this->em->persist($aplicacion);
+            return $resultado + ['aplicacion' => $aplicacion, 'yaAplicada' => false];
         });
     }
 
     /** @param array<string, mixed> $input @param array<string, PuntoControl> $puntos */
     private function crearTarea(array $input, PlanControl $plan, Establecimiento $local, array $puntos): TareaAPPCC
     {
-        $this->claves($input, ['nombre', 'frecuencia', 'puntoControl', 'descripcion', 'horaPrevista', 'diaSemana', 'diaMes', 'plazoMinutos', 'limiteMinimo', 'limiteMaximo', 'unidad', 'instrucciones', 'configuracion', 'obligatoria']);
+        $this->claves($input, ['nombre', 'frecuencia', 'puntoControl', 'descripcion', 'horaPrevista', 'diaSemana', 'diaMes', 'plazoMinutos', 'limiteMinimo', 'limiteMaximo', 'unidad', 'instrucciones', 'configuracion', 'obligatoria', 'requiereLimites']);
         $frecuencia = FrecuenciaTarea::tryFrom($this->texto($input, 'frecuencia')) ?? throw new BusinessRuleException('Frecuencia de tarea no válida.');
         $tarea = (new TareaAPPCC())->setEstablecimiento($local)->setPlanControl($plan)
             ->setNombre($this->texto($input, 'nombre'))->setFrecuencia($frecuencia)->setCreatedAt($this->clock->now());
@@ -167,6 +218,15 @@ final readonly class PlantillaAPPCCService
                 throw new BusinessRuleException('El campo obligatoria debe ser booleano.');
             }
             $tarea->setObligatoria($input['obligatoria']);
+        }
+        if (array_key_exists('requiereLimites', $input)) {
+            if (!is_bool($input['requiereLimites'])) { throw new BusinessRuleException('requiereLimites debe ser booleano.'); }
+            if ($input['requiereLimites']) { $tarea->exigirLimites(); $tarea->setActiva(false); }
+        }
+        if (($tarea->getConfiguracion()['tipoRespuesta'] ?? null) === 'numero'
+            && $tarea->getLimiteMinimo() === null && $tarea->getLimiteMaximo() === null) {
+            $tarea->exigirLimites();
+            $tarea->setActiva(false);
         }
 
         return $tarea;

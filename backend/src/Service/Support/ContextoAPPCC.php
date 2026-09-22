@@ -65,6 +65,9 @@ final readonly class ContextoAPPCC
 
     public function validarRelacionesTarea(TareaAPPCC $tarea, Establecimiento $local): void
     {
+        if ($tarea->isConfiguracionPendiente()) {
+            throw new BusinessRuleException('El control está pendiente de configurar sus límites, unidad e instrucciones.');
+        }
         if ($tarea->getEstablecimiento()?->getId() !== $local->getId()) {
             throw new BusinessRuleException('La tarea no pertenece al establecimiento indicado.');
         }

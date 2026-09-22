@@ -1,0 +1,149 @@
+{
+    "codigo": "restaurante-v1",
+    "nombre": "Restaurante · inicio APPCC v1",
+    "descripcion": "Base de trabajo adaptable al establecimiento; no sustituye su evaluación de riesgos. Revise puntos, horarios, frecuencias e instrucciones. Los controles numéricos se crean inactivos y sin límites; debe configurar límites propios antes de activarlos.",
+    "configuracion": {
+        "puntosControl": [
+            {
+                "clave": "frio",
+                "nombre": "Inicial · Equipo de conservación en frío",
+                "tipo": "camara_frigorifica",
+                "descripcion": "Identifique el equipo real y los productos conservados; duplique controles si hay varios equipos."
+            },
+            {
+                "clave": "recepcion",
+                "nombre": "Inicial · Recepción de materias primas",
+                "tipo": "recepcion"
+            },
+            {
+                "clave": "cocina",
+                "nombre": "Inicial · Cocina y superficies de preparación",
+                "tipo": "cocina"
+            },
+            {
+                "clave": "equipo",
+                "nombre": "Inicial · Equipos de cocina",
+                "tipo": "equipo"
+            }
+        ],
+        "planes": [
+            {
+                "nombre": "Inicial · Control de temperaturas",
+                "tipo": "temperaturas",
+                "descripcion": "Límites pendientes de validación para productos, equipos y procesos del establecimiento.",
+                "tareas": [
+                    {
+                        "nombre": "Revisar temperatura de conservación",
+                        "frecuencia": "diaria",
+                        "horaPrevista": "09:00:00",
+                        "puntoControl": "frio",
+                        "requiereLimites": true,
+                        "unidad": "°C",
+                        "instrucciones": "Identifique equipo, productos y método de medida. Configure límites propios y revise el horario antes de activar.",
+                        "configuracion": {
+                            "tipoRespuesta": "numero"
+                        }
+                    },
+                    {
+                        "nombre": "Cocción de elaboraciones",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "cocina",
+                        "requiereLimites": true,
+                        "unidad": "°C",
+                        "instrucciones": "Por cada elaboración que requiera tratamiento térmico. Defina el producto, la medida y los límites validados en el plan del establecimiento.",
+                        "configuracion": {
+                            "tipoRespuesta": "numero"
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Limpieza y desinfección",
+                "tipo": "limpieza",
+                "tareas": [
+                    {
+                        "nombre": "Limpieza de cocina y superficies",
+                        "frecuencia": "diaria",
+                        "horaPrevista": "18:00:00",
+                        "puntoControl": "cocina",
+                        "instrucciones": "Compruebe la ejecución del procedimiento de limpieza y desinfección del establecimiento, incluidos productos y métodos autorizados para el uso previsto. Registre false ante incumplimiento.",
+                        "configuracion": {
+                            "tipoRespuesta": "boolean"
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Recepción de materias primas",
+                "tipo": "recepcion",
+                "tareas": [
+                    {
+                        "nombre": "Verificar cada recepción",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "recepcion",
+                        "instrucciones": "Revise proveedor, identificación de lotes, integridad, etiquetado y condiciones de recepción según las especificaciones acordadas. Evalúe explícitamente la conformidad.",
+                        "configuracion": {
+                            "campos": [
+                                "proveedor",
+                                "producto",
+                                "lote",
+                                "condicionesRecepcion"
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Gestión de alérgenos",
+                "tipo": "alergenos",
+                "tareas": [
+                    {
+                        "nombre": "Verificar alérgenos antes del servicio",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "cocina",
+                        "instrucciones": "Contraste ingredientes y fichas actualizadas, separación, utensilios e identificación. Registre false si existe un incumplimiento.",
+                        "configuracion": {
+                            "tipoRespuesta": "boolean"
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Trazabilidad",
+                "tipo": "trazabilidad",
+                "tareas": [
+                    {
+                        "nombre": "Trazabilidad de elaboraciones",
+                        "frecuencia": "bajo_demanda",
+                        "puntoControl": "cocina",
+                        "instrucciones": "Vincule los lotes de entrada con la elaboración o expedición. Compruebe que pueda reconstruirse el recorrido del producto e indique la conformidad.",
+                        "configuracion": {
+                            "campos": [
+                                "elaboracion",
+                                "lotesIngredientes",
+                                "fechaElaboracion"
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "nombre": "Inicial · Mantenimiento y verificación",
+                "tipo": "mantenimiento",
+                "tareas": [
+                    {
+                        "nombre": "Revisar equipos e instrumentos",
+                        "frecuencia": "semanal",
+                        "puntoControl": "equipo",
+                        "instrucciones": "Compruebe estado, incidencias y verificaciones previstas en el plan de mantenimiento. Adapte la periodicidad al equipo.",
+                        "configuracion": {
+                            "tipoRespuesta": "boolean"
+                        },
+                        "diaSemana": 1,
+                        "horaPrevista": "09:00:00"
+                    }
+                ]
+            }
+        ]
+    }
+}

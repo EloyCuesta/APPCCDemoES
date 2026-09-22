@@ -86,21 +86,29 @@ final class BusinessLogicTest extends PostgresTestCase
     public function testRollbackConjuntoDeRegistroEstadoIncidenciaEHistorial(): void
     {
         $p = $this->programar();
+        $foto = $this->foto();
         $listener = new class {
+            public bool $falloInyectado = false;
             public function postPersist(PostPersistEventArgs $args): void
             {
-                if ($args->getObject() instanceof HistorialIncidencia) { throw new \RuntimeException('Fallo de persistencia intencional.'); }
+                if ($args->getObject() instanceof HistorialIncidencia) {
+                    $this->falloInyectado = true;
+                    throw new \RuntimeException('Fallo de persistencia intencional.');
+                }
             }
         };
         $this->em->getEventManager()->addEventListener(['postPersist'], $listener);
         try {
-            self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($p, '9'));
+            self::getContainer()->get(RegistroAPPCCService::class)->registrar($this->registro($p, '9'), [$foto]);
             self::fail('Se esperaba rollback.');
-        } catch (\RuntimeException $e) {
-            self::assertSame('Fallo de persistencia intencional.', $e->getMessage());
+        } catch (\App\Exception\EvidenciaStorageException) {
+            // El servicio oculta detalles internos cuando hay archivos y compensa el movimiento.
+            self::assertTrue($listener->falloInyectado, 'Debe alcanzarse el fallo intencional de persistencia del historial.');
+            self::assertCount(1, glob($this->evidenciasDir.'/temporal/*'));
+            self::assertSame([], glob($this->evidenciasDir.'/definitivo/*'));
         }
         $db = $this->em->getConnection();
-        foreach (['registro_appcc', 'incidencia', 'historial_incidencia'] as $table) { self::assertSame(0, (int) $db->fetchOne('SELECT count(*) FROM '.$table)); }
+        foreach (['registro_appcc', 'incidencia', 'historial_incidencia', 'evidencia'] as $table) { self::assertSame(0, (int) $db->fetchOne('SELECT count(*) FROM '.$table)); }
         self::assertSame('pendiente', $db->fetchOne('SELECT estado FROM tarea_programada WHERE id = ?', [$p->getId()]));
         self::assertNull($db->fetchOne('SELECT completada_at FROM tarea_programada WHERE id = ?', [$p->getId()]));
     }
@@ -148,7 +156,7 @@ final class BusinessLogicTest extends PostgresTestCase
     #[DataProvider('padresEvidencia')]
     public function testEvidenciaXor(bool $registro, bool $incidencia, bool $valida): void
     {
-        $r = $this->registrar('9');
+        $r = $this->registrarConFoto('9');
         $i = $r->getIncidencias()->first();
         $e = (new Evidencia())->setSubidaPor($this->usuario)->setTipo(TipoEvidencia::FOTO)->setStorageKey('evidencias/prueba')
             ->setNombreOriginal('foto.jpg')->setMimeType('image/jpeg')->setTamanoBytes(100)->setHashSha256(str_repeat('a', 64));
@@ -173,7 +181,7 @@ final class BusinessLogicTest extends PostgresTestCase
 
     public function testIncidenciaUnicaPorRegistroEnPostgres(): void
     {
-        $r = $this->registrar('9');
+        $r = $this->registrarConFoto('9');
         self::assertSame($r->getIncidencias()->first(), self::getContainer()->get(IncidenciaService::class)->crearDesdeRegistro($r));
         $this->expectException(UniqueConstraintViolationException::class);
         $this->em->getConnection()->executeStatement('INSERT INTO incidencia (establecimiento_id, registro_id, titulo, descripcion, gravedad, estado, fecha_apertura, created_at) SELECT establecimiento_id, registro_id, titulo, descripcion, gravedad, estado, fecha_apertura, created_at FROM incidencia');
@@ -181,7 +189,7 @@ final class BusinessLogicTest extends PostgresTestCase
 
     public function testConflictoDeIncidenciaSeTraduceA409(): void
     {
-        $r = $this->registrar('9');
+        $r = $this->registrarConFoto('9');
         $this->expectException(\Symfony\Component\HttpKernel\Exception\ConflictHttpException::class);
         self::getContainer()->get(IncidenciaService::class)->crearManual((new Incidencia())->setEstablecimiento($this->local)->setRegistro($r)->setTitulo('Duplicada')->setDescripcion('Otro intento'), $this->usuario);
     }
@@ -208,7 +216,7 @@ final class BusinessLogicTest extends PostgresTestCase
 
     public function testHistorialAppendOnlyEnPostgres(): void
     {
-        $this->registrar('9');
+        $this->registrarConFoto('9');
         $this->expectException(\Doctrine\DBAL\Exception\DriverException::class);
         $this->em->getConnection()->executeStatement("UPDATE historial_incidencia SET comentario = 'alterado'");
     }

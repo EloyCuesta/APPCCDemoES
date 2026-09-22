@@ -27,6 +27,15 @@ final readonly class TenantAuthorization
         }
     }
 
+    /** Revalidación bajo el bloqueo del establecimiento, después de cualquier espera. */
+    public function assertAplicarPlantilla(Establecimiento $local): void
+    {
+        if (!$this->context->isApiRequest()) { return; }
+        $this->assertLocal($local);
+        $ok = $this->em->getConnection()->fetchOne("SELECT m.id FROM usuario_establecimiento m JOIN usuario u ON u.id = m.usuario_id JOIN establecimiento e ON e.id = m.establecimiento_id JOIN entidad_fiscal f ON f.id = e.entidad_fiscal_id WHERE m.usuario_id = ? AND m.establecimiento_id = ? AND m.activo AND m.rol IN ('admin', 'responsable') AND u.activo AND e.activo AND f.activo", [$this->context->usuario()->getId(), $local->getId()]);
+        if ($ok === false) { throw new AccessDeniedHttpException('Se requiere una membresía activa ADMIN o RESPONSABLE.'); }
+    }
+
     public function assertOperarRegistros(): void
     {
         if (!in_array($this->context->rol(), [RolEstablecimiento::ADMIN, RolEstablecimiento::RESPONSABLE, RolEstablecimiento::TRABAJADOR], true)) {

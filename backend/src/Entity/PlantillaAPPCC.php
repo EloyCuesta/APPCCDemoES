@@ -17,9 +17,17 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PlantillaAPPCCRepository::class)]
+#[ORM\UniqueConstraint(name: 'uniq_plantilla_codigo', columns: ['codigo'])]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/plantillas-appcc'),
     new Get(uriTemplate: '/plantillas-appcc/{id}'),
+    new Post(uriTemplate: '/plantillas-appcc/{id}/aplicar', status: 200,
+        input: \App\Dto\AplicarPlantillaInput::class, output: \App\Dto\AplicarPlantillaOutput::class,
+        read: false, securityPostDenormalize: "is_granted('ROLE_USER')",
+        denormalizationContext: ['allow_extra_attributes' => false],
+        processor: \App\State\Processor\AplicarPlantillaProcessor::class,
+        openapi: new \ApiPlatform\OpenApi\Model\Operation(summary: 'Aplicar una plantilla al establecimiento seleccionado (ADMIN o RESPONSABLE).',
+            parameters: [new \ApiPlatform\OpenApi\Model\Parameter(name: 'X-Establecimiento-Id', in: 'header', required: true, schema: ['type' => 'integer', 'minimum' => 1])])),
 ])]
 class PlantillaAPPCC
 {
@@ -27,6 +35,13 @@ class PlantillaAPPCC
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
+
+    #[ORM\Column(length: 80, nullable: true)]
+    #[ApiProperty(writable: false, description: 'Código estable y versionado del catálogo inicial.')]
+    private ?string $codigo = null;
+
+    public function getCodigo(): ?string { return $this->codigo; }
+    public function setCodigo(string $codigo): static { $this->codigo = $codigo; return $this; }
 
     #[ORM\Column(length: 180)]
     #[Assert\NotBlank(message: 'El campo nombre es obligatorio.', normalizer: 'trim')]
