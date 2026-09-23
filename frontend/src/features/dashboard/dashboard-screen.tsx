@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useAuth } from "@/hooks/use-auth";
 import { useEstablecimiento } from "@/hooks/use-establecimiento";
 import { ConnectionStatus } from "./connection-status";
@@ -102,11 +104,10 @@ export function DashboardScreen() {
           <p className="eyebrow">SIGUIENTE PASO</p>
           <h2>Agenda APPCC</h2>
           <p className="muted">
-            Las tareas programadas y los controles diarios se incorporarán en la
-            siguiente versión.
+            Consulta los controles pendientes, vencidos y próximos de este establecimiento.
           </p>
         </div>
-        <span className="badge">En preparación</span>
+        <Link className="button button-secondary" href="/agenda">Abrir agenda</Link>
       </section>
     </>
   );

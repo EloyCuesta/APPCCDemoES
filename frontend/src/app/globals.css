@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../features/agenda/agenda.css";
 
 :root {
   --canvas: #f5f6f3;

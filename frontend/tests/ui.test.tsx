@@ -12,7 +12,7 @@ import { context, deferred, json } from "./fixtures";
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
 const router = { replace };
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/dashboard" }));
 const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {

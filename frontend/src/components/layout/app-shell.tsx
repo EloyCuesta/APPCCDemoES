@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Brand } from "@/components/ui/brand";
 import { useAuth } from "@/hooks/use-auth";
 import { EstablecimientoSelector } from "@/features/establecimientos/establecimiento-selector";
 
 const futurePages = [
-  "Agenda",
   "Tareas",
   "Registros",
   "Incidencias",
@@ -17,6 +17,7 @@ const futurePages = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="app-shell">
@@ -36,14 +37,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
         <nav id="main-navigation" aria-label="Navegación principal">
           <p className="nav-label">ESPACIO DE TRABAJO</p>
-          <Link
-            href="/dashboard"
-            className="nav-item nav-active"
-            aria-current="page"
-            onClick={() => setMenuOpen(false)}
-          >
-            <span aria-hidden="true">▦</span>Dashboard
-          </Link>
+          {[{ href: "/dashboard", name: "Dashboard", symbol: "▦" }, { href: "/agenda", name: "Agenda", symbol: "▤" }].map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.symbol}</span>{item.name}</Link>;
+          })}
           {futurePages.map((name, index) => (
             <button
               type="button"
@@ -53,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               title="Disponible en una próxima versión"
             >
               <span className="nav-index" aria-hidden="true">
-                {String(index + 2).padStart(2, "0")}
+                {String(index + 3).padStart(2, "0")}
               </span>
               {name}
               <span className="soon-label">Próx.</span>

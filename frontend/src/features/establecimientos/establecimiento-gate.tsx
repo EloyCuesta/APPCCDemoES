@@ -31,7 +31,7 @@ export function EstablecimientoGate({
       </h1>
       <p className="muted">
         {establecimientos.length
-          ? "Selecciona un establecimiento para acceder a su dashboard. Puedes cambiarlo en cualquier momento desde la cabecera."
+          ? "Selecciona un establecimiento para acceder a tu espacio de trabajo. Puedes cambiarlo en cualquier momento desde la cabecera."
           : "Tu cuenta está activa, pero no tiene establecimientos autorizados. Contacta con la persona administradora para que revise tu acceso."}
       </p>
       {establecimientos.length > 0 && <EstablecimientoSelector />}
