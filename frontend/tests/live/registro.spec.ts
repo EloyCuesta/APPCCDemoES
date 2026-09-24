@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { prepararProgramacion } from "./programacion";
 
 const api = "http://127.0.0.1:8011";
 
@@ -46,19 +47,7 @@ test("trabajador registra conforme y no conforme con foto contra Symfony real", 
   expect(tarea).toBeDefined();
   const executions: number[] = [];
   for (const seconds of [120, 60]) {
-    const response = await request.post(
-      `${api}/api/tareas/${tarea.id}/programaciones`,
-      {
-        headers,
-        data: {
-          fechaProgramada: new Date(Date.now() - seconds * 1000)
-            .toISOString()
-            .replace(/\.\d{3}Z$/, "Z"),
-        },
-      },
-    );
-    expect(response.status()).toBe(201);
-    executions.push((await response.json()).id);
+    executions.push(await prepararProgramacion(request, api, tarea.id, headers, seconds));
   }
 
   await page.goto("/login");

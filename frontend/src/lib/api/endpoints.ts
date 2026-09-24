@@ -6,6 +6,22 @@ export interface Endpoint {
 
 // Paths verified against Symfony routes and API Platform resource metadata.
 export const endpoints = {
+    incidencias: (query: URLSearchParams): Endpoint => ({
+        path: `/api/incidencias?${query}`, scope: "tenant", accept: "application/ld+json",
+    }),
+    incidencia: (id: number): Endpoint => ({
+        path: `/api/incidencias/${id}`, scope: "tenant", accept: "application/ld+json",
+    }),
+    accionesIncidencia: (id: number, page: number): Endpoint => ({
+        path: `/api/incidencias/${id}/acciones?page=${page}&itemsPerPage=20`, scope: "tenant", accept: "application/ld+json",
+    }),
+    historialIncidencia: (id: number, page: number): Endpoint => ({
+        path: `/api/incidencias/${id}/historial?page=${page}&itemsPerPage=20&order%5BcreatedAt%5D=asc`, scope: "tenant", accept: "application/ld+json",
+    }),
+    accionesCorrectivas: { path: "/api/acciones-correctivas", scope: "tenant", accept: "application/ld+json" },
+    registro: (id: number): Endpoint => ({
+        path: `/api/registros/${id}`, scope: "tenant", accept: "application/ld+json",
+    }),
     programacion: (id: number): Endpoint => ({
         path: `/api/tareas-programadas/${id}`, scope: "tenant", accept: "application/ld+json",
     }),
@@ -57,5 +73,6 @@ export const endpoints = {
     string,
     | Endpoint
     | ((id: number) => Endpoint)
+    | ((id: number, page: number) => Endpoint)
     | ((query: URLSearchParams) => Endpoint)
 >;

@@ -2,6 +2,8 @@
 
 Next.js 16.3.6, React 19, TypeScript estricto y App Router. Autenticación Symfony/LexikJWT, contexto multiestablecimiento, dashboard privado y Agenda APPCC operativa: registro de controles, evidencias y confirmación del usuario autenticado. La aplicación no contiene datos mock; los dobles HTTP están exclusivamente en `tests/`.
 
+El módulo **Incidencias APPCC** permite consultar, filtrar y paginar incidencias, visualizar el registro de origen y su historial, añadir acciones correctivas y solicitar las transiciones existentes hasta resolver. Auditor en solo lectura; trabajador puede añadir acciones; admin/responsable también cambian estados. Contratos, manejo de errores, validación y alcance pendiente en [entrega de incidencias](docs/incidencias.md). El flujo Agenda → Registro se mantiene cerrado.
+
 ## Requisitos y arranque
 
 - Node.js 22.13+, 24.x o 26+; recomendado Node.js 24 LTS, utilizado en validación y CI.
@@ -154,6 +156,7 @@ src/
   features/dashboard/      Resumen y conexión
   features/agenda/         Consulta paginada, filtros, agrupación y registro
   features/registros/      Contratos, formulario, subidas y confirmación
+  features/incidencias/    Consulta, detalle, origen, acciones e historial
   hooks/                   Autenticación, establecimiento y API
   lib/api/                 Cliente, endpoints, errores y JSON-LD
   lib/auth/                Persistencia y ciclo de sesión
@@ -206,6 +209,8 @@ npm.cmd run test:live
 ```
 
 Esta prueba arranca PHP en 8011 y Next en 3101. Mantén esos puertos libres y detén otros `next dev` de este repositorio durante las pruebas. Crea mediante la API dos ejecuciones bajo demanda por dispositivo, entra por la interfaz con trabajador, registra un control conforme sin foto y otro no conforme con PNG, exige dos 201, comprueba confirmación/autoría, desaparición de Agenda, consulta de registros y exactamente una incidencia en el no conforme. **Escribe datos demo reales y conserva sus históricos**. Los tokens y contraseñas no se incluyen en trazas. Cubre escritorio y móvil; las capturas están en `test-results/`. `test:e2e` conserva las pruebas con dobles HTTP y no requiere Symfony.
+
+La suite real incluye además `incidencias.spec.ts`: login como responsable → Agenda → no conformidad con foto → Incidencias → registro de origen → acción correctiva → en proceso → resuelta, con reconsulta e historial reales en ambos dispositivos.
 
 Comprobación manual: en Agenda abre una ejecución cuya fecha ya haya llegado, introduce un valor dentro de sus límites, confirma y registra; comprueba el éxito y que desaparece. Abre otra ejecución, introduce un valor fuera de límites, añade observación, sube `backend/tests/Fixtures/evidencia.png`, confirma y registra. En las herramientas de red comprueba 201 en ambos POST. `GET /api/registros?tareaProgramada=/api/tareas-programadas/ID` y `GET /api/incidencias?registro=/api/registros/ID` permiten verificar el histórico y la incidencia con el JWT y tenant correspondientes. Las ejecuciones futuras siguen sujetas a la validación temporal de Symfony.
 
