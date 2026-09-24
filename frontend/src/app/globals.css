@@ -2,6 +2,7 @@
 @import "../features/agenda/agenda.css";
 @import "../features/registros/registro.css";
 @import "../features/incidencias/incidencias.css";
+@import "../features/registros/historico.css";
 
 :root {
   --canvas: #f5f6f3;

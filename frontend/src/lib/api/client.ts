@@ -13,6 +13,11 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
+export interface BinaryResponse {
+  blob: Blob;
+  contentDisposition: string | null;
+}
+
 export class ApiClient {
   private pending = new AbortController();
 
@@ -30,6 +35,14 @@ export class ApiClient {
     endpoint: Endpoint,
     options: RequestOptions = {},
   ): Promise<T> {
+    return await this.send(endpoint, options, false) as T;
+  }
+
+  async download(endpoint: Endpoint, options: Pick<RequestOptions, "signal"> = {}): Promise<BinaryResponse> {
+    return await this.send(endpoint, options, true) as BinaryResponse;
+  }
+
+  private async send(endpoint: Endpoint, options: RequestOptions, binary: boolean): Promise<unknown> {
     let base: URL;
     try {
       base = new URL(this.baseUrl);
@@ -104,11 +117,14 @@ export class ApiClient {
           signal,
         },
       );
-      let data: unknown;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
+      let data: unknown = null;
+      // Los errores siempre usan la misma semántica JSON. Nunca se descargan como archivos.
+      if (!binary || !response.ok) {
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
       }
       // Also protects against transports that complete after being aborted.
       cancelled.throwIfAborted();
@@ -127,9 +143,16 @@ export class ApiClient {
           this.context.onUnauthorized();
         throw error;
       }
+      if (binary) {
+        const blob = await response.blob();
+        cancelled.throwIfAborted();
+        if (timeout.signal.aborted) throw new ApiError(0, "La API está tardando demasiado. Vuelve a intentarlo.");
+        if (blob.size === 0) throw new ApiError(502, "La API ha devuelto un archivo vacío.");
+        return { blob, contentDisposition: response.headers.get("Content-Disposition") } satisfies BinaryResponse;
+      }
       if (data === null && response.status !== 204)
         throw new ApiError(502, "La API ha devuelto una respuesta no válida.");
-      return data as T;
+      return data;
     } catch (error) {
       if (error instanceof ApiError) throw error;
       cancelled.throwIfAborted();

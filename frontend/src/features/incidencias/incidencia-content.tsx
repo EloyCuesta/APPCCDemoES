@@ -1,4 +1,4 @@
-import { DateTime } from "./date-time";
+import { DateTime } from "@/components/ui/date-time";
 import type { DetalleIncidencia } from "./service";
 
 export function IncidenciaContent({ data }: { data: DetalleIncidencia }) {

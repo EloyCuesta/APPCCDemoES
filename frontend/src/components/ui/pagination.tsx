@@ -1,5 +1,4 @@
 import type { ApiCollection } from "@/lib/api/collections";
-import { PAGE_SIZE } from "./query";
 
 export function Pagination({
   label,
@@ -7,16 +6,18 @@ export function Pagination({
   page,
   onPage,
   disabled = false,
+  pageSize = 20,
 }: {
   label: string;
   data: ApiCollection<unknown>;
   page: number;
   onPage: (page: number) => void;
   disabled?: boolean;
+  pageSize?: number;
 }) {
   const hasNext =
     data.next !== null ||
-    (data.total !== null && page * PAGE_SIZE < data.total);
+    (data.total !== null && page * pageSize < data.total);
   return (
     <nav className="agenda-pagination" aria-label={`Paginación de ${label}`}>
       <button

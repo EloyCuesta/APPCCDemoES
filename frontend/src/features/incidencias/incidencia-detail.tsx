@@ -16,10 +16,10 @@ import {
   writeIncidencia,
   type EscrituraIncidencia,
 } from "./service";
-import { useConsulta } from "./use-consulta";
-import { Pagination } from "./pagination";
+import { useConsulta } from "@/hooks/use-consulta";
+import { Pagination } from "@/components/ui/pagination";
 import { IncidenciaContent } from "./incidencia-content";
-import { DateTime } from "./date-time";
+import { DateTime } from "@/components/ui/date-time";
 
 export function IncidenciaDetail({
   id,

@@ -12,10 +12,10 @@ import {
   type IncidenciasFiltersValue,
 } from "./query";
 import { loadIncidencias } from "./service";
-import { useConsulta } from "./use-consulta";
+import { useConsulta } from "@/hooks/use-consulta";
 import { IncidenciasFilters } from "./incidencias-filters";
 import { IncidenciaDetail } from "./incidencia-detail";
-import { Pagination } from "./pagination";
+import { Pagination } from "@/components/ui/pagination";
 
 export function IncidenciasScreen() {
   const { establecimientoActual } = useEstablecimiento();

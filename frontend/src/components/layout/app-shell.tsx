@@ -9,7 +9,6 @@ import { EstablecimientoSelector } from "@/features/establecimientos/establecimi
 
 const futurePages = [
   "Tareas",
-  "Registros",
   "Plantillas",
   "Configuración",
 ];
@@ -36,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
         <nav id="main-navigation" aria-label="Navegación principal">
           <p className="nav-label">ESPACIO DE TRABAJO</p>
-          {[{ href: "/dashboard", name: "Dashboard", symbol: "▦" }, { href: "/agenda", name: "Agenda", symbol: "▤" }, { href: "/incidencias", name: "Incidencias", symbol: "!" }].map((item) => {
+          {[{ href: "/dashboard", name: "Dashboard", symbol: "▦" }, { href: "/agenda", name: "Agenda", symbol: "▤" }, { href: "/registros", name: "Registros", symbol: "▣" }, { href: "/incidencias", name: "Incidencias", symbol: "!" }].map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.symbol}</span>{item.name}</Link>;
           })}

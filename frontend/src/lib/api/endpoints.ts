@@ -1,11 +1,20 @@
 export interface Endpoint {
     path: string;
     scope: "public" | "session" | "tenant";
-    accept: "application/json" | "application/ld+json";
+    accept: "application/json" | "application/ld+json" | "application/octet-stream";
 }
 
 // Paths verified against Symfony routes and API Platform resource metadata.
 export const endpoints = {
+    historicoRegistros: (query: URLSearchParams): Endpoint => ({
+        path: `/api/registros?${query}`, scope: "tenant", accept: "application/ld+json",
+    }),
+    evidenciasRegistro: (id: number, page: number): Endpoint => ({
+        path: `/api/registros/${id}/evidencias?page=${page}&itemsPerPage=20`, scope: "tenant", accept: "application/ld+json",
+    }),
+    descargarEvidencia: (id: number): Endpoint => ({
+        path: `/api/evidencias/${id}/descargar`, scope: "tenant", accept: "application/octet-stream",
+    }),
     incidencias: (query: URLSearchParams): Endpoint => ({
         path: `/api/incidencias?${query}`, scope: "tenant", accept: "application/ld+json",
     }),

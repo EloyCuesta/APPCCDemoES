@@ -1,0 +1,23 @@
+.historico-screen { min-width: 0; }
+.historico-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.historico-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.historico-row { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 24px; overflow-wrap: anywhere; }
+.historico-row h2 { margin: 5px 0 10px; }
+.historico-row-actions { display: grid; justify-items: start; align-content: center; gap: 10px; font-size: 12px; }
+.historico-summary { margin-top: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.historico-result { padding: 4px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+.historico-conforme { background: var(--green-light); color: var(--green); }
+.historico-no-conforme { background: #fbe8e0; color: #8e3925; }
+.historico-detail { display: grid; gap: 18px; min-width: 0; overflow-wrap: anywhere; }
+.historico-evidencias { display: grid; gap: 18px; padding: 0; margin: 0; list-style: none; }
+.historico-evidencias li { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+.historico-evidencias li + li { padding-top: 18px; border-top: 1px solid var(--line); }
+.historico-evidencias li > div { min-width: 0; }
+.historico-evidencias .button { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .historico-screen .page-heading { flex-direction: column; align-items: start; gap: 16px; }
+  .historico-filter-grid, .historico-row { grid-template-columns: minmax(0, 1fr); }
+  .historico-row-actions { display: flex; flex-wrap: wrap; align-items: center; }
+  .historico-detail .card, .historico-row { padding: 18px; }
+  .historico-evidencias li { flex-direction: column; gap: 12px; }
+}

@@ -1,11 +1,10 @@
 import type { ApiClient } from "@/lib/api/client";
 import { endpoints } from "@/lib/api/endpoints";
-import { ApiError } from "@/lib/api/errors";
+import { loadUsuarioLabel } from "@/lib/api/read-relations";
 import { readCollection } from "@/lib/api/collections";
 import {
   checkId,
   checkTenant,
-  parseResponsable,
   parseTarea,
 } from "@/features/agenda/contracts";
 import {
@@ -100,19 +99,7 @@ export async function loadDetalle(
   // Los autores con membresías revocadas pueden dejar de ser consultables: se conserva su identificador histórico.
   for (const iri of iris) {
     signal.throwIfAborted();
-    const userId = resourceId(iri, "usuarios");
-    try {
-      const person = checkId(
-        parseResponsable(
-          await api.request(endpoints.usuario(userId), { signal }),
-        ),
-        userId,
-      );
-      usuarios[iri] = `${person.nombre} ${person.apellidos}`.trim();
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 404) throw error;
-      usuarios[iri] = `Usuario #${userId} (sin acceso actual)`;
-    }
+    usuarios[iri] = await loadUsuarioLabel(api, iri, signal);
   }
   signal.throwIfAborted();
   return { incidencia, registro, tarea, acciones, historial, usuarios };

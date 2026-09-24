@@ -8,8 +8,8 @@ import { loadOptions, type ReferenceKind, type ReferenceOption } from "./service
 
 interface OptionsState { key: string; options: ReferenceOption[]; hasMore: boolean; error: ApiError | null }
 
-export function ReferenceSelect({ kind, tenantId, value, onChange }: {
-  kind: ReferenceKind; tenantId: number; value: string; onChange: (value: string) => void;
+export function ReferenceSelect({ kind, tenantId, value, onChange, userLabel = "Responsable" }: {
+  kind: ReferenceKind; tenantId: number; value: string; onChange: (value: string) => void; userLabel?: "Responsable" | "Usuario";
 }) {
   const api = useApi();
   const id = useId();
@@ -18,8 +18,8 @@ export function ReferenceSelect({ kind, tenantId, value, onChange }: {
   const [state, setState] = useState<OptionsState>({ key: "", options: [], hasMore: false, error: null });
   const key = `${tenantId}:${kind}:${page}:${attempt}`;
   const loading = state.key !== key;
-  const label = kind === "tarea" ? "Tarea / control" : "Responsable";
-  const plural = kind === "tarea" ? "tareas" : "responsables";
+  const label = kind === "tarea" ? "Tarea / control" : userLabel;
+  const plural = kind === "tarea" ? "tareas" : userLabel === "Usuario" ? "usuarios" : "responsables";
   useEffect(() => {
     const controller = new AbortController();
     loadOptions(api, kind, page, tenantId, controller.signal).then((data) => {
@@ -37,7 +37,7 @@ export function ReferenceSelect({ kind, tenantId, value, onChange }: {
   return <div className="agenda-filter-field">
     <label htmlFor={id}>{label}</label>
     <select id={id} value={value} onChange={(event) => onChange(event.target.value)} disabled={loading && state.options.length === 0}>
-      <option value="">{kind === "tarea" ? "Todas las tareas" : "Todos los responsables"}</option>
+      <option value="">{kind === "tarea" ? "Todas las tareas" : `Todos los ${plural}`}</option>
       {state.options.map((option) => <option value={option.iri} key={option.iri}>{option.label}</option>)}
     </select>
     {loading && <span className="muted filter-help" role="status">Cargando {plural}…</span>}

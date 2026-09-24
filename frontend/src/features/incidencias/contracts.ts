@@ -1,5 +1,6 @@
-import { ApiError, isRecord } from "@/lib/api/errors";
-import { isInstant } from "@/features/agenda/dates";
+import { invalidResource as invalid, resourceIdentity as identity, resourceRelation as relation, resourceText as text, resourceInstant as instant, optionalText } from "@/lib/api/resources";
+export { resourceId } from "@/lib/api/resources";
+export { parseRegistroOrigen } from "@/features/registros/read-contracts";
 import type { RolEstablecimiento } from "@/types/session";
 
 export const estados = {
@@ -24,57 +25,6 @@ export function puedeAnadirAccion(rol: RolEstablecimiento | undefined) {
   return puedeCambiarEstado(rol) || rol === "trabajador";
 }
 
-type Resource =
-  | "incidencias"
-  | "registros"
-  | "establecimientos"
-  | "usuarios"
-  | "tareas"
-  | "tareas-programadas";
-function invalid(): never {
-  throw new ApiError(
-    502,
-    "La API ha devuelto datos de incidencias no válidos. Vuelve a consultar.",
-  );
-}
-export function resourceId(value: unknown, resource: Resource): number {
-  const match =
-    typeof value === "string" &&
-    new RegExp(`^/api/${resource}/([1-9][0-9]*)$`).exec(value);
-  const id = match ? Number(match[1]) : 0;
-  if (!Number.isSafeInteger(id) || id <= 0) return invalid();
-  return id;
-}
-function relation(value: unknown, resource: Resource): string {
-  return `/api/${resource}/${resourceId(value, resource)}`;
-}
-function identity(
-  value: unknown,
-  resource: string,
-): Record<string, unknown> & { id: number } {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== "number" ||
-    !Number.isSafeInteger(value.id) ||
-    value.id <= 0
-  )
-    return invalid();
-  if (
-    value["@id"] !== undefined &&
-    value["@id"] !== `/api/${resource}/${value.id}`
-  )
-    return invalid();
-  return { ...value, id: value.id };
-}
-function text(value: unknown): string {
-  return typeof value === "string" ? value : invalid();
-}
-function optionalText(value: unknown): string | null {
-  return value == null ? null : text(value);
-}
-function instant(value: unknown): string {
-  return isInstant(value) ? value : invalid();
-}
 function state(value: unknown): EstadoIncidencia {
   return typeof value === "string" && Object.hasOwn(estados, value)
     ? (value as EstadoIncidencia)
@@ -128,32 +78,6 @@ export function parseHistorial(value: unknown) {
     createdAt: instant(data.createdAt),
   };
 }
-export function parseRegistroOrigen(value: unknown) {
-  const data = identity(value, "registros");
-  if (
-    typeof data.conforme !== "boolean" ||
-    (data.datos != null && !isRecord(data.datos) && !Array.isArray(data.datos))
-  )
-    return invalid();
-  return {
-    id: data.id,
-    establecimiento: relation(data.establecimiento, "establecimientos"),
-    tarea: relation(data.tarea, "tareas"),
-    tareaProgramada: relation(data.tareaProgramada, "tareas-programadas"),
-    usuario: relation(data.usuario, "usuarios"),
-    fechaHora: instant(data.fechaHora),
-    conforme: data.conforme,
-    valorNumerico: optionalText(data.valorNumerico),
-    datos: data.datos ?? null,
-    observaciones: optionalText(data.observaciones),
-    confirmadoAt: data.confirmadoAt == null ? null : instant(data.confirmadoAt),
-    confirmadoPor:
-      data.confirmadoPor == null
-        ? null
-        : relation(data.confirmadoPor, "usuarios"),
-  };
-}
-
 export function checkParent<T extends { incidencia: string }>(
   item: T,
   id: number,
