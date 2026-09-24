@@ -6,6 +6,12 @@ export interface Endpoint {
 
 // Paths verified against Symfony routes and API Platform resource metadata.
 export const endpoints = {
+    programacion: (id: number): Endpoint => ({
+        path: `/api/tareas-programadas/${id}`, scope: "tenant", accept: "application/ld+json",
+    }),
+    configuracionesEstablecimiento: { path: "/api/configuraciones-establecimiento", scope: "tenant", accept: "application/ld+json" },
+    registros: { path: "/api/registros", scope: "tenant", accept: "application/ld+json" },
+    subirEvidencia: { path: "/api/evidencias/subidas", scope: "tenant", accept: "application/json" },
     login: {
         path: "/api/login_check",
         scope: "public",

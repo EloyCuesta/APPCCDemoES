@@ -72,7 +72,8 @@ export class ApiClient {
         );
       headers.set("X-Establecimiento-Id", String(id));
     }
-    if (options.body !== undefined) {
+    const multipart = options.body instanceof FormData;
+    if (options.body !== undefined && !multipart) {
       headers.set(
         "Content-Type",
         options.method === "PATCH"
@@ -96,7 +97,7 @@ export class ApiClient {
           body:
             options.body === undefined
               ? undefined
-              : JSON.stringify(options.body),
+              : multipart ? options.body as FormData : JSON.stringify(options.body),
           cache: "no-store",
           credentials: "omit",
           redirect: "error",

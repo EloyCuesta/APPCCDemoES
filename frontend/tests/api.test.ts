@@ -41,6 +41,22 @@ it("maneja errores de red", async () => {
   });
 });
 
+it("timeout de una escritura aborta a los 15 segundos sin reintentar", async () => {
+  vi.useFakeTimers();
+  try {
+    fetchMock.mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }));
+    const assertion = expect(client().request(endpoints.registros, { method: "POST", body: { confirmarRegistro: true } })).rejects.toMatchObject({
+      status: 0, message: "La API está tardando demasiado. Vuelve a intentarlo.",
+    });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  } finally { vi.useRealTimers(); }
+});
+
 it("expone validaciones de dominio 422", () => {
   const error = responseError(422, {
     detail: "El registro ya está confirmado.",

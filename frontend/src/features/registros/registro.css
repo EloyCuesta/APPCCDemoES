@@ -1,0 +1,103 @@
+.agenda-register {
+  margin-top: 12px;
+  font-size: 11px;
+  padding: 8px;
+}
+.registro-screen {
+  max-width: 850px;
+  min-width: 0;
+}
+.registro-form {
+  display: grid;
+  gap: 22px;
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+}
+.registro-form h1 {
+  font-size: 26px;
+  margin-top: 8px;
+}
+.registro-form fieldset {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.registro-form legend {
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.registro-form label {
+  font-weight: 600;
+}
+.registro-form input:not([type="checkbox"]),
+.registro-form select,
+.registro-form textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 10px;
+  color: var(--ink);
+  font: inherit;
+}
+.registro-form textarea {
+  resize: vertical;
+}
+.registro-field {
+  display: grid;
+  gap: 6px;
+}
+.registro-instrucciones {
+  white-space: pre-wrap;
+}
+.registro-photo-required {
+  padding: 14px;
+  background: #fff4ef;
+  color: #8e3925;
+  border-radius: 6px;
+}
+.registro-preview,
+.registro-success {
+  padding: 14px;
+  background: var(--green-light);
+  color: var(--green);
+}
+.registro-success {
+  margin-bottom: 20px;
+}
+.registro-confirmacion {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.registro-confirmacion input {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  accent-color: var(--green);
+}
+.registro-files {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.registro-files li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+@media (max-width: 600px) {
+  .registro-form {
+    padding: 18px;
+  }
+  .registro-form h1 {
+    font-size: 22px;
+  }
+}
