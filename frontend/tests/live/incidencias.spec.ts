@@ -244,7 +244,10 @@ test("login → Agenda → no conformidad → incidencia → acción → resoluc
   const recordDetail = page.getByRole("region", { name: "Detalle del registro" });
   await expect(recordDetail.getByText(observaciones, { exact: true })).toBeVisible();
   await expect(recordDetail.getByText("No conforme", { exact: true })).toBeVisible();
-  await expect(recordDetail.getByText(tarea.nombre, { exact: true })).toBeVisible();
+  await expect(recordDetail.getByRole("heading", {
+    name: `Registro #${registro.id} · ${tarea.nombre}`,
+    exact: true,
+  })).toBeVisible();
   const evidencias = await request.get(`${api}/api/registros/${registro.id}/evidencias`, { headers });
   expect(evidencias.status()).toBe(200);
   const evidenceData = await evidencias.json();
@@ -257,9 +260,13 @@ test("login → Agenda → no conformidad → incidencia → acción → resoluc
   await recordDetail.getByRole("button", { name: `Descargar evidencia.png (#${evidenceId})`, exact: true }).click();
   const response = await binary;
   expect(response.status()).toBe(200);
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["content-disposition"]).toMatch(/^attachment;/);
   expect(response.request().headers()["authorization"]).toMatch(/^Bearer /);
   expect(response.request().headers()["x-establecimiento-id"]).toBe(String(tenantId));
-  expect(response.headers()["access-control-expose-headers"]).toContain("Content-Disposition");
+  const exposedHeaders = response.headers()["access-control-expose-headers"]
+    .split(",").map((name) => name.trim().toLowerCase());
+  expect(exposedHeaders).toContain("content-disposition");
   const download = await downloading;
   expect(download.suggestedFilename()).toBe("evidencia.png");
   const output = testInfo.outputPath("evidencia-descargada.png");
