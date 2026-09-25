@@ -47,9 +47,9 @@ Auditoría del 25/09/2026 sobre `main` `3c92592536d9a21bca1288ad60e9110d516ad66e
 | Recurrencia y vencimiento | ✅ | `GeneradorTareasProgramadasTest`, `CalendarioRecurrenteTest`, `CicloOperativoTareasTest`, pruebas de concurrencia y reconciliación |
 | Demo idempotente y restricción dev/test | ✅ | `DemoSeedCommandTest`; seed repetido localmente conserva contadores e históricos; ciclo sin errores |
 | Aceptación completa en navegador desktop/mobile | ✅ | 6 pruebas live con Chromium: registro conforme/NC, incidencia→acción→resolución→histórico→descarga y plantilla→límites→idempotencia→cambio tenant→logout |
-| Backend CI y Frontend CI | ⚠ | El commit de partida tiene ambas pipelines rojas; pendiente validar el commit corregido en Actions |
+| Backend CI y Frontend CI | ✅ | Ambas verdes para `0f047193297abcc8d135e812042564121e3d0956` en la [PR #1](https://github.com/EloyCuesta/APPCCDemoES/pull/1): [Backend](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36179828947), [Frontend](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36179828929) |
 
-La implementación existente cubre las áreas funcionales esenciales auditadas y pasa la aceptación local. El cierre global sigue abierto hasta confirmar CI remota; no añadir funcionalidades para ocultar ese bloqueo.
+La implementación cubre las áreas funcionales esenciales auditadas y pasa la aceptación local y remota. La entrega está validada en la rama de revisión; queda integrar la PR en `main`. El commit de partida de `main` conserva sus ejecuciones fallidas hasta integrar las correcciones. No hay otro flujo funcional esencial pendiente identificado en esta auditoría.
 
 ## Resultados de validación de esta entrega
 
@@ -67,6 +67,8 @@ Entorno local: Windows, PHP 8.3.11, PostgreSQL 18, Node 24.13.0. Las suites fron
 | `npm run build` | ✅ rutas MVP compiladas |
 | `npm run test:e2e` | ✅ 4 pruebas: 2 desktop y 2 mobile |
 | `npm run test:live` | ✅ 6 pruebas: 3 desktop y 3 mobile |
+
+GitHub Actions confirma también la ejecución desde checkout limpio, instalación con lockfiles, bases PostgreSQL separadas y Chromium en Linux. Las ejecuciones enlazadas corresponden al commit funcional indicado; al actualizar la rama, comprobar siempre los checks del nuevo HEAD de la PR. El verificador local de evidencias informó cero inconsistencias y cero archivos definitivos sin fila.
 
 Regresiones comprobadas: dos opciones `exact` incompatibles con Testing Library; variables externas invisibles para Dotenv bajo PHP cli-server con GPCS; selector live que esperaba el nombre aislado en vez del encabezado completo del registro; comparación sensible a mayúsculas de los nombres de cabecera CORS. Además se regeneró la caché local dev sin debug, que conservaba metadatos anteriores a los campos de configuración de controles. Se mantienen las aserciones funcionales y PostgreSQL. Detalle de causa y entornos en [DEVELOPMENT](DEVELOPMENT.md).
 
