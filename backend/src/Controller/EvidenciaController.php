@@ -64,6 +64,7 @@ final readonly class EvidenciaController
             try { fpassthru($flujo); } finally { fclose($flujo); }
         });
         $response->headers->set('Content-Type', $evidencia->getMimeType());
+        $response->headers->set('Content-Length', (string) $evidencia->getTamanoBytes());
         $response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $evidencia->getNombreOriginal(), 'evidencia'));
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Cache-Control', 'private, no-store, max-age=0');

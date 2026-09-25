@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/backend-ci.yml'
 
   pull_request:
@@ -13,6 +14,7 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/backend-ci.yml'
 
 permissions:
@@ -26,7 +28,7 @@ jobs:
   test:
     name: PHP 8.3 / PostgreSQL 18
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     defaults:
       run:
@@ -95,3 +97,34 @@ jobs:
 
       - name: Run PHPUnit
         run: php bin/phpunit
+
+      - name: Prepare isolated live demonstration database
+        env:
+          APP_ENV: dev
+          APP_DEBUG: '0'
+        run: |
+          php bin/console doctrine:database:create --if-not-exists --no-interaction
+          php bin/console doctrine:migrations:migrate --no-interaction
+          php bin/console doctrine:schema:validate
+          php bin/console app:demo:seed
+          php bin/console app:tareas:procesar
+
+      - name: Setup Node for full MVP acceptance
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend and browser
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Exercise the MVP against Symfony and PostgreSQL
+        working-directory: frontend
+        env:
+          APP_ENV: dev
+          APP_DEBUG: '0'
+        run: npm run test:live

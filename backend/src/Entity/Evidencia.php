@@ -85,7 +85,8 @@ class Evidencia
     #[ORM\Column(length: 64, nullable: true)]
     #[Assert\Length(exactly: 64)]
     #[Assert\Regex(pattern: '/^[a-fA-F0-9]{64}$/D')]
-    #[Groups(['evidencia:read'])]
+    #[ApiProperty(readable: false, writable: false)]
+    #[\Symfony\Component\Serializer\Attribute\Ignore]
     private ?string $hashSha256 = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]

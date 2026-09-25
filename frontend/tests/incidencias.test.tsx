@@ -290,6 +290,28 @@ it("incidencia manual sin registro y autor histórico no accesible", async () =>
   expect(calls("/api/registros/8")).toHaveLength(0);
 });
 
+it("tarea del registro ya inaccesible conserva origen, acciones e historial", async () => {
+  overrides.set("GET /api/tareas/1", async () => json({}, 404));
+  actions.push(accion());
+  await open();
+  expect(detail().getByRole("heading", { name: "Registro #8 · Control #1 (sin acceso actual)" })).toBeVisible();
+  expect(detail().getByText("Observación original inmutable.")).toBeVisible();
+  expect(detail().getByText("9.000")).toBeVisible();
+  expect(detail().getByText("Acción 1")).toBeVisible();
+  expect(detail().getByText("Creación → Abierta")).toBeVisible();
+  expect(detail().getByRole("button", { name: "Guardar acción correctiva" })).toBeEnabled();
+});
+
+it("403 al consultar tarea no se convierte en un origen histórico sin acceso", async () => {
+  overrides.set("GET /api/tareas/1", async () => json({}, 403));
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: "Abrir incidencia #11" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("permisos");
+  expect(detail().queryByText(/Control #1 \(sin acceso actual\)/)).not.toBeInTheDocument();
+  expect(detail().queryByRole("region", { name: "Registro APPCC de origen" })).not.toBeInTheDocument();
+  expect(detail().queryByRole("button", { name: "Guardar acción correctiva" })).not.toBeInTheDocument();
+});
+
 it("acción: POST mínimo, JWT y tenant, sin duplicar envío y relectura completa", async () => {
   rol = "trabajador";
   const pending = deferred<Response>();

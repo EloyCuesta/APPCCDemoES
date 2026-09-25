@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Entity\{EntidadFiscal, Establecimiento, PlanControl, TareaAPPCC, TareaProgramada, Usuario, UsuarioEstablecimiento};
-use App\Enum\{EstadoTareaProgramada, FrecuenciaTarea, RolEstablecimiento, TipoActividad, TipoEntidadFiscal};
-use App\Service\{GeneradorTareasProgramadasService, OnboardingService, PlantillaAPPCCService, TareaAPPCCService, TareaProgramadaService};
+use App\Entity\{AccionCorrectiva, EntidadFiscal, Establecimiento, Incidencia, PlanControl, RegistroAPPCC, TareaAPPCC, TareaProgramada, Usuario, UsuarioEstablecimiento};
+use App\Enum\{EstadoTareaProgramada, FrecuenciaTarea, RolEstablecimiento, TipoActividad, TipoEntidadFiscal, TipoEvidencia};
+use App\Service\{AccionCorrectivaService, GeneradorTareasProgramadasService, OnboardingService, PlantillaAPPCCService, RegistroAPPCCService, SubidaEvidenciaService, TareaAPPCCService, TareaProgramadaService};
 use App\Service\Support\{CalendarioAPPCC, TransaccionAPPCC, ValidacionDominio};
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -17,6 +17,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 #[AsCommand(name: 'app:demo:seed', description: 'Preparar una demo local reproducible (solo dev/test).')]
 final class DemoSeedCommand extends Command
@@ -24,6 +25,7 @@ final class DemoSeedCommand extends Command
     public const PASSWORD = 'AppccDemo2026!';
     public const NIF = 'B00000000';
     public const NOMBRE = 'Restaurante APPCC Demo';
+    public const OBRADOR = 'Obrador APPCC Demo';
 
     public function __construct(
         #[Autowire('%kernel.environment%')] private readonly string $environment,
@@ -33,6 +35,9 @@ final class DemoSeedCommand extends Command
         private readonly TareaAPPCCService $tareas,
         private readonly GeneradorTareasProgramadasService $generador,
         private readonly TareaProgramadaService $programadas,
+        private readonly RegistroAPPCCService $registros,
+        private readonly SubidaEvidenciaService $subidas,
+        private readonly AccionCorrectivaService $acciones,
         private readonly CalendarioAPPCC $calendario,
         private readonly TransaccionAPPCC $transaccion,
         private readonly ValidacionDominio $validacion,
@@ -51,7 +56,7 @@ final class DemoSeedCommand extends Command
 
         $catalogo = $this->plantillas->cargarIniciales();
         $plantilla = array_values(array_filter($catalogo, static fn ($p) => $p->getCodigo() === 'restaurante-v1'))[0];
-        [$local, $creado] = $this->transaccion->ejecutar(function () use ($plantilla): array {
+        [$local, $obrador, $creado] = $this->transaccion->ejecutar(function () use ($plantilla): array {
             // Serializa semillas simultáneas sin INSERT SQL ni atajos de dominio.
             $this->em->getConnection()->executeQuery('SELECT pg_advisory_xact_lock(20260923, 1)');
             $usuarios = [];
@@ -82,6 +87,16 @@ final class DemoSeedCommand extends Command
                     $usuarios['admin']);
             }
             $local->setActivo(true);
+            // Segundo contexto vacío para demostrar aislamiento y aplicar una plantilla desde la interfaz.
+            $obrador = $this->em->getRepository(Establecimiento::class)
+                ->findOneBy(['entidadFiscal' => $fiscal, 'nombre' => self::OBRADOR]);
+            if ($obrador === null) {
+                $obrador = $this->onboarding->crearOnboarding($fiscal,
+                    (new Establecimiento())->setNombre(self::OBRADOR)->setTipoActividad(TipoActividad::OBRADOR)
+                        ->setDireccion('Calle Demo 2')->setCodigoPostal('28001')->setLocalidad('Madrid')->setProvincia('Madrid'),
+                    $usuarios['admin']);
+            }
+            $obrador->setActivo(true);
             $config = $local->getConfiguracion();
             $config->setPermiteRegistrosAtrasados(true)->setMaximoMinutosRegistroAtrasado(null)
                 ->setRequiereFirmaRegistro(true)->setGeneraIncidenciaAutomatica(true)->setRequiereObservacionNoConforme(true);
@@ -90,12 +105,14 @@ final class DemoSeedCommand extends Command
             $this->em->flush();
             foreach (RolEstablecimiento::cases() as $rol) {
                 $usuario = $usuarios[$rol->value];
-                $member = $this->em->getRepository(UsuarioEstablecimiento::class)
-                    ->findOneBy(['usuario' => $usuario, 'establecimiento' => $local])
-                    ?? (new UsuarioEstablecimiento())->setUsuario($usuario)->setEstablecimiento($local);
-                $member->setRol($rol)->setActivo(true);
-                $this->validacion->validar($member);
-                $this->em->persist($member);
+                foreach ([$local, $obrador] as $destino) {
+                    $member = $this->em->getRepository(UsuarioEstablecimiento::class)
+                        ->findOneBy(['usuario' => $usuario, 'establecimiento' => $destino])
+                        ?? (new UsuarioEstablecimiento())->setUsuario($usuario)->setEstablecimiento($destino);
+                    $member->setRol($rol)->setActivo(true);
+                    $this->validacion->validar($member);
+                    $this->em->persist($member);
+                }
             }
             $resultado = $this->plantillas->aplicar($plantilla, $local);
             $this->em->flush();
@@ -111,7 +128,7 @@ final class DemoSeedCommand extends Command
                 $tarea->setActiva(true);
                 $this->tareas->guardarCambios($tarea);
             }
-            return [$local, $creado];
+            return [$local, $obrador, $creado];
         });
 
         $hoy = $this->clock->now()->setTimezone($this->calendario->zonaHoraria($local))->setTime(0, 0);
@@ -126,17 +143,67 @@ final class DemoSeedCommand extends Command
             }
         }
         $this->programadas->detectarVencidas($local);
+        $this->crearHistoricoDemo($local);
         $io->success(sprintf('Establecimiento %s: %s (ID %d).', $creado ? 'creado' : 'reutilizado', $local->getNombre(), $local->getId()));
+        $io->note(sprintf('%s (ID %d): disponible para aplicar la plantilla Obrador desde /plantillas.', $obrador->getNombre(), $obrador->getId()));
         $io->warning('Credenciales exclusivas de desarrollo local. Nunca utilizar en producción.');
         $io->table(['Usuario', 'Rol', 'Contraseña de desarrollo'], array_map(
             static fn ($rol) => [$rol->value.'@appccdemo.local', $rol->value, self::PASSWORD], RolEstablecimiento::cases()));
         $io->table(['Recurso', 'Total'], [
             ['Planes', $this->em->getRepository(PlanControl::class)->count(['establecimiento' => $local])],
             ['Tareas', $this->em->getRepository(TareaAPPCC::class)->count(['establecimiento' => $local])],
+            ['Registros', $this->em->getRepository(RegistroAPPCC::class)->count(['establecimiento' => $local])],
+            ['Incidencias', $this->em->getRepository(Incidencia::class)->count(['establecimiento' => $local])],
             ['Ejecuciones pendientes/vencidas', $this->em->getRepository(TareaProgramada::class)->count([
                 'establecimiento' => $local, 'estado' => [EstadoTareaProgramada::PENDIENTE, EstadoTareaProgramada::VENCIDA],
             ])],
         ]);
         return Command::SUCCESS;
+    }
+
+    private function crearHistoricoDemo(Establecimiento $local): void
+    {
+        // Los archivos necesitan sus propias transacciones. El bloqueo de sesión impide
+        // duplicados entre dos semillas sin envolver las subidas en otra transacción.
+        $db = $this->em->getConnection();
+        $db->executeQuery('SELECT pg_advisory_lock(20260925, 1)');
+        try {
+            $autor = $this->em->getRepository(Usuario::class)->findOneBy(['email' => 'trabajador@appccdemo.local']);
+            $responsable = $this->em->getRepository(Usuario::class)->findOneBy(['email' => 'responsable@appccdemo.local']);
+            $coccion = $this->em->getRepository(TareaAPPCC::class)->findOneBy(['establecimiento' => $local, 'nombre' => 'Cocción de elaboraciones']);
+            $recepcion = $this->em->getRepository(TareaAPPCC::class)->findOneBy(['establecimiento' => $local, 'nombre' => 'Verificar cada recepción']);
+            $ejemplos = [
+                ['DEMO: cocción conforme simulada.', $coccion, '75', null, true],
+                ['DEMO: lectura simulada fuera del límite. Revisar equipo antes de continuar.', $coccion, '60', null, false],
+                ['DEMO: recepción conforme con trazabilidad simulada.', $recepcion, null,
+                    ['proveedor' => 'Proveedor de demostración', 'producto' => 'Ingredientes de prueba', 'lote' => 'DEMO-001', 'condicionesRecepcion' => 'Envases íntegros; comprobación simulada.'], true],
+            ];
+            foreach ($ejemplos as $index => [$observacion, $tarea, $valor, $datos, $conforme]) {
+                $registro = $this->em->getRepository(RegistroAPPCC::class)->findOneBy(['establecimiento' => $local, 'observaciones' => $observacion]);
+                if ($registro === null && $tarea !== null && $tarea->isActiva()) {
+                    $fecha = $this->clock->now()->modify('-'.(3 - $index).' minutes');
+                    $programada = $this->programadas->programar($tarea, $local, $fecha, $autor);
+                    $evidencias = [];
+                    if (!$conforme) {
+                        $subida = $this->subidas->subir(new UploadedFile(dirname(__DIR__, 2).'/resources/demo/muestra-tecnica.png',
+                            'muestra-técnica-demo.png', 'image/png', test: true), TipoEvidencia::FOTO, $autor, $local);
+                        $evidencias[] = ['token' => $subida['token'], 'tipo' => 'foto'];
+                    }
+                    $registro = $this->registros->registrar((new RegistroAPPCC())->setTareaProgramada($programada)
+                        ->setEstablecimiento($local)->setUsuario($autor)->setFechaHora($fecha)->setValorNumerico($valor)
+                        ->setDatos($datos)->setConforme($conforme)->setObservaciones($observacion), $evidencias, true);
+                }
+                if ($registro?->isConforme() === false) {
+                    $incidencia = $this->em->getRepository(Incidencia::class)->findOneBy(['registro' => $registro]);
+                    if ($incidencia !== null && $this->em->getRepository(AccionCorrectiva::class)->count(['incidencia' => $incidencia]) === 0) {
+                        $this->acciones->anadir((new AccionCorrectiva())->setIncidencia($incidencia)->setUsuario($responsable)
+                            ->setDescripcion('DEMO: revisar el equipo y repetir la medición antes de continuar.')
+                            ->setResultado('Pendiente de verificación por el responsable.'));
+                    }
+                }
+            }
+        } finally {
+            $db->executeQuery('SELECT pg_advisory_unlock(20260925, 1)');
+        }
     }
 }

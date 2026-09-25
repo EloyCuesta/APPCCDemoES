@@ -1,59 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Brand } from "@/components/ui/brand";
 import { useAuth } from "@/hooks/use-auth";
 import { EstablecimientoSelector } from "@/features/establecimientos/establecimiento-selector";
 
-const futurePages = [
-  "Tareas",
-  "Plantillas",
-  "Configuración",
-];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const main = useRef<HTMLElement>(null);
+  const menuToggle = useRef<HTMLButtonElement>(null);
+  useEffect(() => { main.current?.focus(); }, [pathname]);
+  function closeMenu() { setMenuOpen(false); menuToggle.current?.focus(); }
   return (
     <div className="app-shell">
       <a href="#main-content" className="skip-link">
         Saltar al contenido
       </a>
-      <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
+      <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`} onKeyDown={(event) => { if (event.key === "Escape") closeMenu(); }}>
         <div className="sidebar-brand">
           <Brand />
         </div>
         <button
           className="mobile-menu-close button button-quiet"
           type="button"
-          onClick={() => setMenuOpen(false)}
+          onClick={closeMenu}
         >
           Cerrar menú
         </button>
         <nav id="main-navigation" aria-label="Navegación principal">
           <p className="nav-label">ESPACIO DE TRABAJO</p>
-          {[{ href: "/dashboard", name: "Dashboard", symbol: "▦" }, { href: "/agenda", name: "Agenda", symbol: "▤" }, { href: "/registros", name: "Registros", symbol: "▣" }, { href: "/incidencias", name: "Incidencias", symbol: "!" }].map((item) => {
+          {[{ href: "/dashboard", name: "Dashboard", symbol: "▦" }, { href: "/agenda", name: "Agenda", symbol: "▤" }, { href: "/registros", name: "Registros", symbol: "▣" }, { href: "/incidencias", name: "Incidencias", symbol: "!" }, { href: "/plantillas", name: "Plantillas", symbol: "▧" }].map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.symbol}</span>{item.name}</Link>;
           })}
-          {futurePages.map((name, index) => (
-            <button
-              type="button"
-              className="nav-item"
-              disabled
-              key={name}
-              title="Disponible en una próxima versión"
-            >
-              <span className="nav-index" aria-hidden="true">
-                {String(index + 3).padStart(2, "0")}
-              </span>
-              {name}
-              <span className="soon-label">Próx.</span>
-            </button>
-          ))}
         </nav>
         <div className="sidebar-note">
           <span className="status-dot" />
@@ -63,7 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </p>
         </div>
         <div className="sidebar-bottom">
-          APPCC Demo ES <span>Base inicial</span>
+          APPCC Demo ES <span>MVP</span>
         </div>
       </aside>
       <div className="app-main">
@@ -71,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             className="button button-secondary mobile-menu-toggle"
+            ref={menuToggle}
             aria-expanded={menuOpen}
             aria-controls="main-navigation"
             onClick={() => setMenuOpen(!menuOpen)}
@@ -98,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Cerrar sesión
           </button>
         </header>
-        <main id="main-content" className="page-content" tabIndex={-1}>
+        <main id="main-content" className="page-content" tabIndex={-1} ref={main}>
           {children}
         </main>
         <footer className="app-footer">

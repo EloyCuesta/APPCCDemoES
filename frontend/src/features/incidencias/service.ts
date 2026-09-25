@@ -1,5 +1,6 @@
 import type { ApiClient } from "@/lib/api/client";
 import { endpoints } from "@/lib/api/endpoints";
+import { ApiError } from "@/lib/api/errors";
 import { loadUsuarioLabel } from "@/lib/api/read-relations";
 import { readCollection } from "@/lib/api/collections";
 import {
@@ -16,6 +17,15 @@ import {
   resourceId,
   type EstadoIncidencia,
 } from "./contracts";
+
+async function loadTareaLabel(api: ApiClient, id: number, tenantId: number, signal: AbortSignal) {
+  try {
+    return checkTenant(checkId(parseTarea(await api.request(endpoints.tarea(id), { signal })), id), tenantId).nombre;
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    return `Control #${id} (sin acceso actual)`;
+  }
+}
 
 export async function loadIncidencias(
   api: ApiClient,
@@ -80,13 +90,7 @@ export async function loadDetalle(
   const tarea =
     tareaId === null
       ? null
-      : checkTenant(
-          checkId(
-            parseTarea(await api.request(endpoints.tarea(tareaId), { signal })),
-            tareaId,
-          ),
-          tenantId,
-        );
+      : await loadTareaLabel(api, tareaId, tenantId, signal);
   const iris = new Set(
     [
       ...acciones.items.map((a) => a.usuario),

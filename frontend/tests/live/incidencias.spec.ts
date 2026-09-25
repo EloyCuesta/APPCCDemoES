@@ -1,12 +1,13 @@
 import { test, expect as baseExpect } from "@playwright/test";
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { prepararProgramacion } from "./programacion";
 
 const api = "http://127.0.0.1:8011";
 // El servidor PHP de desarrollo atiende en serie las lecturas de cada detalle.
 const expect = baseExpect.configure({ timeout: 20_000 });
 
-test("login → Agenda → no conformidad → incidencia → acción → en proceso → resuelta", async ({
+test("login → Agenda → no conformidad → incidencia → acción → resolución → histórico → descarga", async ({
   page,
   request,
 }, testInfo) => {
@@ -232,4 +233,42 @@ test("login → Agenda → no conformidad → incidencia → acción → en proc
       .locator(`[data-incidencia-id="${id}"]`)
       .getByText("Resuelta", { exact: true }),
   ).toBeVisible();
+
+  await navigate("Registros");
+  await expect(page.getByRole("heading", { name: "Registros APPCC", exact: true })).toBeVisible();
+  await page.getByLabel("Tarea / control", { exact: true }).selectOption(`/api/tareas/${tarea.id}`);
+  await page.getByLabel("Usuario", { exact: true }).selectOption(`/api/usuarios/${me.id}`);
+  await page.getByLabel("Conformidad", { exact: true }).selectOption("false");
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+  await page.getByRole("button", { name: `Ver registro #${registro.id}`, exact: true }).click();
+  const recordDetail = page.getByRole("region", { name: "Detalle del registro" });
+  await expect(recordDetail.getByText(observaciones, { exact: true })).toBeVisible();
+  await expect(recordDetail.getByText("No conforme", { exact: true })).toBeVisible();
+  await expect(recordDetail.getByText(tarea.nombre, { exact: true })).toBeVisible();
+  const evidencias = await request.get(`${api}/api/registros/${registro.id}/evidencias`, { headers });
+  expect(evidencias.status()).toBe(200);
+  const evidenceData = await evidencias.json();
+  expect(evidenceData.totalItems).toBe(1);
+  expect(evidenceData.member[0]).not.toHaveProperty("storageKey");
+  expect(evidenceData.member[0]).not.toHaveProperty("hashSha256");
+  const evidenceId = evidenceData.member[0].id;
+  const downloading = page.waitForEvent("download");
+  const binary = page.waitForResponse((r) => r.url().endsWith(`/api/evidencias/${evidenceId}/descargar`));
+  await recordDetail.getByRole("button", { name: `Descargar evidencia.png (#${evidenceId})`, exact: true }).click();
+  const response = await binary;
+  expect(response.status()).toBe(200);
+  expect(response.request().headers()["authorization"]).toMatch(/^Bearer /);
+  expect(response.request().headers()["x-establecimiento-id"]).toBe(String(tenantId));
+  expect(response.headers()["access-control-expose-headers"]).toContain("Content-Disposition");
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe("evidencia.png");
+  const output = testInfo.outputPath("evidencia-descargada.png");
+  await download.saveAs(output);
+  expect(await readFile(output)).toEqual(await readFile(path.resolve("../backend/tests/Fixtures/evidencia.png")));
+  await expect(recordDetail.getByText("Descarga iniciada: evidencia.png")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("historico-evidencias.png"), fullPage: true });
+  await page.getByRole("button", { name: "Volver a registros", exact: true }).click();
+  await expect(page.getByLabel("Conformidad", { exact: true })).toHaveValue("false");
+  await page.getByRole("button", { name: "Limpiar filtros", exact: true }).click();
+  await expect(page.getByLabel("Conformidad", { exact: true })).toHaveValue("");
 });

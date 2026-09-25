@@ -5,7 +5,9 @@ import type { EvidenciaHistorica } from "./evidencias-contracts";
 
 function safeFilename(value: string): string {
   const basename = value.split(/[\\/]/).at(-1) ?? "";
-  return [...basename].filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) !== 127 && !'<>:"|?*'.includes(c) && !/[\u202a-\u202e\u2066-\u2069]/.test(c)).join("").trim().replace(/[. ]+$/, "").slice(0, 255);
+  const name = [...basename].filter((c) => c.charCodeAt(0) >= 32 && !(c.charCodeAt(0) >= 127 && c.charCodeAt(0) <= 159) && !'<>:"|?*'.includes(c) && !/[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/.test(c)).join("").trim().slice(0, 255).replace(/[. ]+$/, "");
+  // Los nombres de dispositivos de Windows siguen siendo especiales con extensión.
+  return /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name) ? "" : name;
 }
 export function downloadFilename(disposition: string | null, knownName: string, id: number): string {
   let name = "";

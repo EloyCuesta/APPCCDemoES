@@ -43,6 +43,8 @@ export class ApiClient {
   }
 
   private async send(endpoint: Endpoint, options: RequestOptions, binary: boolean): Promise<unknown> {
+    // Una continuación de un contexto anterior no debe iniciar otra petición.
+    options.signal?.throwIfAborted();
     let base: URL;
     try {
       base = new URL(this.baseUrl);

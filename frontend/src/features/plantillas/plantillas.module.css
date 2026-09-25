@@ -1,0 +1,88 @@
+.screen, .card, .confirmation, .receipt, .preview {
+  display: grid;
+  gap: 18px;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+  gap: 20px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.preview {
+  margin-top: 16px;
+}
+
+.preview ul, .receipt ul {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.preview li + li, .receipt li + li {
+  margin-top: 12px;
+}
+
+.confirmation, .receipt {
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--green-light);
+}
+
+.receipt {
+  grid-column: 1 / -1;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.check input {
+  margin-top: 5px;
+  min-height: 18px;
+  min-width: 18px;
+}
+
+.text {
+  overflow-wrap: anywhere;
+}
+
+.fields {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.fields legend {
+  font-weight: 600;
+  padding: 8px 0;
+}
+
+.fields input:not([type="checkbox"]), .fields textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+}

@@ -26,13 +26,13 @@ final class EvidenciasApiTest extends PostgresTestCase
         $this->programadaId = $this->programar()->getId();
     }
 
-    private function request(string $method, string $uri, ?array $datos = null, ?\Symfony\Component\HttpFoundation\File\UploadedFile $archivo = null, ?string $jwt = null, ?int $local = null): Response
+    private function request(string $method, string $uri, ?array $datos = null, ?\Symfony\Component\HttpFoundation\File\UploadedFile $archivo = null, ?string $jwt = null, ?int $local = null, array $extraHeaders = []): Response
     {
         self::getContainer()->get('security.token_storage')->setToken(null);
         $headers = ['CONTENT_TYPE' => $archivo ? 'multipart/form-data' : ($method === 'PATCH' ? 'application/merge-patch+json' : 'application/ld+json'), 'HTTP_ACCEPT' => 'application/ld+json'];
         if ($jwt !== '') { $headers['HTTP_AUTHORIZATION'] = 'Bearer '.($jwt ?? $this->jwt); }
         if ($local !== 0) { $headers['HTTP_X_ESTABLECIMIENTO_ID'] = (string) ($local ?? $this->local->getId()); }
-        $request = Request::create($uri, $method, parameters: $archivo ? ($datos ?? []) : [], files: $archivo ? ['archivo' => $archivo] : [], server: $headers, content: $archivo || $datos === null ? null : json_encode($datos, JSON_THROW_ON_ERROR));
+        $request = Request::create($uri, $method, parameters: $archivo ? ($datos ?? []) : [], files: $archivo ? ['archivo' => $archivo] : [], server: $extraHeaders + $headers, content: $archivo || $datos === null ? null : json_encode($datos, JSON_THROW_ON_ERROR));
         $r = self::$kernel->handle($request); self::$kernel->terminate($request, $r);
         $this->em->clear();
         return $r;
@@ -67,12 +67,15 @@ final class EvidenciasApiTest extends PostgresTestCase
         $e = $this->guardarFoto();
         $datos = $this->json($this->request('GET', '/api/evidencias/'.$e['id']), 200);
         self::assertArrayNotHasKey('storageKey', $datos);
+        self::assertArrayNotHasKey('hashSha256', $datos);
+        self::assertArrayNotHasKey('token', $datos);
         self::assertStringNotContainsString($e['storageKey'], json_encode($datos));
         self::assertSame('/api/evidencias/'.$e['id'].'/descargar', $datos['downloadUrl'], json_encode($datos));
         $response = $this->request('GET', $datos['downloadUrl']);
         self::assertInstanceOf(StreamedResponse::class, $response);
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('image/png', $response->headers->get('Content-Type'));
+        self::assertSame((string) filesize(__DIR__.'/Fixtures/evidencia.png'), $response->headers->get('Content-Length'));
         self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
         self::assertStringContainsString('attachment;', $response->headers->get('Content-Disposition'));
         self::assertStringContainsString('private', $response->headers->get('Cache-Control'));
@@ -112,6 +115,46 @@ final class EvidenciasApiTest extends PostgresTestCase
         $e = $this->guardarFoto();
         self::assertSame(404, $this->request('GET', '/api/evidencias/'.$e['id'].'/descargar', jwt: $this->otroJwt, local: $this->otroLocal->getId())->getStatusCode());
         self::assertSame(404, $this->request('GET', '/api/evidencias/999999/descargar')->getStatusCode());
+    }
+
+    public function testNombreUtf8DisponibleDesdeElOrigenFrontend(): void
+    {
+        $subida = $this->json($this->request('POST', '/api/evidencias/subidas', ['tipo' => 'foto'],
+            EvidenciaFixtures::archivo(nombre: 'revisión cámara.png')), 201);
+        $this->json($this->enviarRegistro(['evidencias' => [['token' => $subida['token'], 'tipo' => 'foto']]]), 201);
+        $evidencia = $this->em->getRepository(Evidencia::class)->findOneBy([]);
+        $response = $this->request('GET', $evidencia->getDownloadUrl(), extraHeaders: ['HTTP_ORIGIN' => 'http://localhost:3000']);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('http://localhost:3000', $response->headers->get('Access-Control-Allow-Origin'));
+        self::assertStringContainsString('content-disposition', strtolower($response->headers->get('Access-Control-Expose-Headers')));
+        self::assertStringContainsString("filename*=utf-8''revisi%C3%B3n%20c%C3%A1mara.png", $response->headers->get('Content-Disposition'));
+        ob_start(); $response->sendContent(); ob_end_clean();
+    }
+
+    public function testHistoricoYDescargaConservanAutorConMembresiaDesactivada(): void
+    {
+        $e = $this->guardarFoto();
+        $registro = $this->em->getRepository(RegistroAPPCC::class)->findOneBy([]);
+        $registroId = $registro->getId();
+        $autorId = $registro->getUsuario()->getId();
+        $this->em->getRepository(UsuarioEstablecimiento::class)->findOneBy(['usuario' => $autorId,
+            'establecimiento' => $this->local->getId()])->setActivo(false);
+        $lector = $this->em->find(Usuario::class, $this->otroUsuario->getId());
+        $local = $this->em->find(\App\Entity\Establecimiento::class, $this->local->getId());
+        $this->em->persist((new UsuarioEstablecimiento())->setUsuario($lector)->setEstablecimiento($local)->setRol(RolEstablecimiento::AUDITOR));
+        $this->em->flush();
+        $datos = $this->json($this->request('GET', '/api/registros/'.$registroId, jwt: $this->otroJwt), 200);
+        self::assertSame('/api/usuarios/'.$autorId, $datos['usuario']);
+        self::assertSame('/api/usuarios/'.$autorId, $datos['confirmadoPor']);
+        $evidencia = $this->json($this->request('GET', '/api/evidencias/'.$e['id'], jwt: $this->otroJwt), 200);
+        self::assertSame('/api/usuarios/'.$autorId, $evidencia['subidaPor']);
+        self::assertSame(404, $this->request('GET', '/api/usuarios/'.$autorId, jwt: $this->otroJwt)->getStatusCode());
+        $descarga = $this->request('GET', $evidencia['downloadUrl'], jwt: $this->otroJwt);
+        self::assertSame(200, $descarga->getStatusCode());
+        ob_start(); $descarga->sendContent(); ob_end_clean();
+        // El lector pertenece a ambos locales; la cabecera sigue delimitando el recurso.
+        self::assertSame(404, $this->request('GET', $evidencia['downloadUrl'], jwt: $this->otroJwt,
+            local: $this->otroLocal->getId())->getStatusCode());
     }
 
     #[DataProvider('auditoriaInyectada')]

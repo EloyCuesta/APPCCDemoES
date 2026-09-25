@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useEstablecimiento } from "@/hooks/use-establecimiento";
 import { ConnectionStatus } from "./connection-status";
 import type { RolEstablecimiento } from "@/types/session";
+import { Indicadores } from "./indicadores";
 
 const roles: Record<RolEstablecimiento, string> = {
   admin: "Administrador",
@@ -13,14 +14,6 @@ const roles: Record<RolEstablecimiento, string> = {
   trabajador: "Trabajador",
   auditor: "Auditor",
 };
-const indicators = [
-  { title: "Tareas pendientes", text: "Seguimiento del trabajo por realizar." },
-  { title: "Tareas vencidas", text: "Controles que requieren atención." },
-  {
-    title: "Incidencias abiertas",
-    text: "Seguimiento de acciones correctivas.",
-  },
-];
 
 export function DashboardScreen() {
   const { user } = useAuth();
@@ -37,7 +30,7 @@ export function DashboardScreen() {
             Hola, {user.nombre}. Este es tu espacio de control APPCC.
           </p>
         </div>
-        <span className="badge">Base inicial</span>
+        <span className="badge">Control APPCC</span>
       </div>
       <section className="establishment-banner">
         <div>
@@ -49,28 +42,7 @@ export function DashboardScreen() {
           {establishment.tipoActividad.replaceAll("_", " ")}
         </span>
       </section>
-      <div className="section-heading indicators-heading">
-        <h2>Indicadores de seguimiento</h2>
-        <span className="muted">Próximamente</span>
-      </div>
-      <div className="kpi-grid">
-        {indicators.map((item, index) => (
-          <section className="card kpi-card" key={item.title}>
-            <div className="kpi-label">
-              <h3>{item.title}</h3>
-              <span aria-hidden="true">0{index + 1}</span>
-            </div>
-            <p
-              className="kpi-placeholder"
-              aria-label="Indicador todavía no disponible"
-            >
-              —
-            </p>
-            <p className="muted">{item.text}</p>
-            <span className="kpi-note">Pendiente de incorporar</span>
-          </section>
-        ))}
-      </div>
+      <Indicadores tenantId={establishment.id} />
       <div className="details-grid">
         <section className="card user-card">
           <div className="section-heading">

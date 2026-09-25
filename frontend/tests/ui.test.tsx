@@ -17,7 +17,10 @@ const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    if (["/api/tareas-programadas/agenda", "/api/registros", "/api/incidencias"].includes(new URL(String(input)).pathname)) return Promise.resolve(json({ member: [], totalItems: 0 }));
+    return fetchMock(input, init);
+  });
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://api.example.test");
 });
 
@@ -118,7 +121,7 @@ it("selecciona establecimiento, desmonta datos anteriores y cierra sesión", asy
     screen.queryByRole("heading", { name: "Establecimiento 1" }),
   ).not.toBeInTheDocument();
   expect(screen.queryByText("Conexión verificada")).not.toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("Comprobando");
+  expect(screen.getByText("Comprobando el acceso al establecimiento…")).toBeInTheDocument();
   pending.resolve(json({ id: 2, nombre: "Establecimiento 2" }));
   expect(await screen.findByText("Conexión verificada")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Cerrar sesión" }));

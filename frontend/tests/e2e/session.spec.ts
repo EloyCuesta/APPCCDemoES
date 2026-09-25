@@ -51,6 +51,11 @@ test("protección, login, cambio de establecimiento, recarga y logout", async ({
       await route.fulfill({ json: me([1, 2]) });
       return;
     }
+    if (["/api/tareas-programadas/agenda", "/api/registros", "/api/incidencias"].includes(path)) {
+      expect(["1", "2"]).toContain(request.headers()["x-establecimiento-id"]);
+      await route.fulfill({ json: { member: [], totalItems: 0 } });
+      return;
+    }
     const id = Number(path.split("/").at(-1));
     tenantHeaders.push(request.headers()["x-establecimiento-id"]);
     expect(request.headers()["x-establecimiento-id"]).toBe(String(id));
@@ -145,6 +150,10 @@ test("login incorrecto, establecimiento único, permisos y sesión expirada", as
     }
     if (path === "/api/me") {
       await route.fulfill({ json: me([1]) });
+      return;
+    }
+    if (["/api/tareas-programadas/agenda", "/api/registros", "/api/incidencias"].includes(path)) {
+      await route.fulfill({ json: { member: [], totalItems: 0 } });
       return;
     }
     await route.fulfill({
