@@ -3,7 +3,7 @@
 ## P0 — bloquear MVP
 
 - Corregidos `exact`, herencia de entorno PHP, selector de histórico y comparación de cabeceras CORS. Revalidación del 26/09: aceptación local desktop/mobile ampliada a 8 live y 4 e2e verdes, incluidos auditor y generación tras activar plantilla.
-- Backend CI y Frontend CI verdes en la rama de revisión; evidencia en [MVP](MVP.md). No quedan bloqueos funcionales reproducidos en esta auditoría. Toda regresión de CI/tenant/recorrido vuelve a ser P0.
+- Backend CI y Frontend CI con evidencia verde en [MVP](MVP.md). No quedan bloqueos funcionales reproducidos en esta auditoría. Toda regresión de CI/tenant/recorrido vuelve a ser P0.
 
 ## P1 — cierre del MVP
 

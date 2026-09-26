@@ -41,9 +41,9 @@ Revalidación del **26/09/2026**, partiendo de `18203039a386a80bc9e7262300a19ce4
 
 Validación local de esta revisión: composer, contenedor, migraciones/esquema, **520 tests PHPUnit/2.639 aserciones**, lint, typecheck, **229 tests frontend**, build, **4 E2E** y **8 live** correctos. Instalación Windows desde cero, login HTTP de los cuatro roles y navegación desktop/mobile confirmados. La extensión final de descarga del auditor se revalida en ambos dispositivos. La revisión `99b11999a698830bb69b6fbd3b9e238e1084b157` también tiene [Backend CI](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36230345867) y [Frontend CI](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36230345846) verdes. Para cambios posteriores, consultar siempre las pipelines del commit exacto, también después de integrar en `main`.
 
-### Auditoría anterior conservada
+### Flujos validados
 
-Auditoría del 25/09/2026 sobre `main` `3c92592536d9a21bca1288ad60e9110d516ad66e` y cambios de esta entrega. ✅ terminado y validado en el nivel indicado; ⚠ implementado pero con problemas o validación de cierre pendiente; ❌ pendiente. Una prueba de componente no equivale a aceptación integrada.
+Auditoría inicial del 25/09/2026, revalidada y ampliada el 26/09. Cada fila indica la evidencia y su alcance; la aceptación integrada complementa las pruebas de componentes.
 
 | Área | Estado | Evidencia y alcance |
 |---|---|---|
@@ -57,10 +57,10 @@ Auditoría del 25/09/2026 sobre `main` `3c92592536d9a21bca1288ad60e9110d516ad66e
 | Plantillas de las tres actividades y configuración | ✅ | `PlantillasApiTest`, `ConcurrenciaPlantillasTest`, `MigracionPlantillasTest`, `plantillas.test.tsx`; tipo TS corregido |
 | Recurrencia y vencimiento | ✅ | `GeneradorTareasProgramadasTest`, `CalendarioRecurrenteTest`, `CicloOperativoTareasTest`, pruebas de concurrencia y reconciliación |
 | Demo idempotente y restricción dev/test | ✅ | `DemoSeedCommandTest`; seed repetido localmente conserva contadores e históricos; ciclo sin errores |
-| Aceptación completa en navegador desktop/mobile | ✅ | 6 pruebas live con Chromium: registro conforme/NC, incidencia→acción→resolución→histórico→descarga y plantilla→límites→idempotencia→cambio tenant→logout |
-| Backend CI y Frontend CI | ✅ | Ambas verdes para `0f047193297abcc8d135e812042564121e3d0956` en la [PR #1](https://github.com/EloyCuesta/APPCCDemoES/pull/1): [Backend](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36179828947), [Frontend](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36179828929) |
+| Aceptación completa en navegador desktop/mobile | ✅ | 8 pruebas live con Chromium: conforme/NC, incidencia→acción→resolución→histórico→descarga, auditor, plantilla→límites→ciclo→Agenda→idempotencia→cambio tenant→logout |
+| Backend CI y Frontend CI | ✅ | Evidencia de `99b1199` enlazada arriba; la [PR #1](https://github.com/EloyCuesta/APPCCDemoES/pull/1) reúne el cierre. Verificar también el commit exacto de integración, sin reutilizar el resultado de otro SHA. |
 
-La implementación cubre las áreas funcionales esenciales auditadas y pasa la aceptación local y remota. La entrega está validada en la rama de revisión; queda integrar la PR en `main`. El commit de partida de `main` conserva sus ejecuciones fallidas hasta integrar las correcciones. No hay otro flujo funcional esencial pendiente identificado en esta auditoría.
+La implementación cubre las áreas funcionales esenciales auditadas y pasa la aceptación local y remota. No queda ningún flujo funcional esencial ausente o defectuoso identificado en esta auditoría. Las ejecuciones fallidas del antiguo punto de partida `3c92592` son históricas; no describen el estado de esta entrega.
 
 ## Resultados de validación de esta entrega
 
@@ -71,13 +71,13 @@ Entorno local: Windows, PHP 8.3.11, PostgreSQL 18, Node 24.13.0. Las suites fron
 | `composer validate --strict` | ✅ |
 | `php bin/console lint:container` | ✅ |
 | Migraciones y `doctrine:schema:validate` | ✅ versión `20260922090000`, esquema sincronizado |
-| `php bin/phpunit` | ✅ 513 tests, 2.625 aserciones |
+| `php bin/phpunit` | ✅ 520 tests, 2.639 aserciones |
 | `npm run lint` | ✅ |
 | `npm run typecheck` | ✅ |
 | `npm test` | ✅ 229 pruebas, 10 archivos |
 | `npm run build` | ✅ rutas MVP compiladas |
 | `npm run test:e2e` | ✅ 4 pruebas: 2 desktop y 2 mobile |
-| `npm run test:live` | ✅ 6 pruebas: 3 desktop y 3 mobile |
+| `npm run test:live` | ✅ 8 pruebas: 4 desktop y 4 mobile |
 
 GitHub Actions confirma también la ejecución desde checkout limpio, instalación con lockfiles, bases PostgreSQL separadas y Chromium en Linux. Las ejecuciones enlazadas corresponden al commit funcional indicado; al actualizar la rama, comprobar siempre los checks del nuevo HEAD de la PR. El verificador local de evidencias informó cero inconsistencias y cero archivos definitivos sin fila.
 
