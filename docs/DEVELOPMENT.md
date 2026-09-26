@@ -2,6 +2,63 @@
 
 Leer primero [MVP](MVP.md) y [arquitectura](ARCHITECTURE.md). Los comandos siguientes se ejecutan desde la carpeta indicada. Se requieren PHP 8.3 para la suite PHPUnit instalada, Composer 2, PostgreSQL 18, Node 24 (CI), npm y Chromium/Edge para Playwright. Habilitar `pdo_pgsql`, `fileinfo`, OpenSSL y las extensiones requeridas por Composer, incluida sodium para JWT.
 
+## Arranque rápido en Windows (PowerShell)
+
+Con PHP, Composer, Node/npm en PATH y PostgreSQL 18 local arrancado, desde la raíz del repositorio:
+
+```powershell
+git switch fix/mvp-ci-and-agent-docs
+git pull --ff-only
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-setup.ps1
+```
+
+La entrega está en esa rama mientras la PR #1 siga abierta. Tras integrarla, usar `main`. Cerrar los servidores Next/Playwright antes del setup: `npm ci` necesita sustituir sus dependencias. No hace falta ejecutar PowerShell como administrador.
+
+En una instalación nueva el setup solicita **la contraseña de tu PostgreSQL local**, para el usuario `postgres` y puerto `5432`; la contraseña de la aplicación demo es otra. Para otra cuenta/puerto: añadir `-DatabaseUser tu_usuario -DatabasePort 5433`. Esa cuenta necesita permiso para crear la base, o debe existir previamente. El script escribe `.env.local` privado con la contraseña codificada en URL y un APP_SECRET aleatorio. Si ese archivo ya existe, lo conserva y usa su configuración. Se detiene ante cualquier fallo.
+
+Instala los lockfiles, habilita sodium/OpenSSL en el proceso, genera JWT si falta, crea la base, aplica migraciones, valida esquema, carga catálogo/demo y procesa agenda. Solo admite el entorno efectivo `dev`, PostgreSQL en loopback y bases `appcc_demo_es` o `appcc_demo_es_<nombre>`; rechaza `_test`, destinos remotos y otros entornos antes de migrar/sembrar. No borra bases ni históricos. La política Bypass afecta únicamente al proceso invocado.
+
+**Terminal 1 — backend**, desde la raíz:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-start.ps1 backend
+```
+
+**Terminal 2 — frontend**, desde la raíz:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-start.ps1 frontend
+```
+
+Abrir **http://localhost:3000/login**. API: **http://127.0.0.1:8000**. Cada servidor permanece en su terminal; Ctrl+C lo detiene. `frontend/.env.development` configura la API local para `next dev`; no necesitas crear `.env.local` frontend. Si ya tienes uno, sus valores prevalecen: debe apuntar a esa misma API. Producción sigue necesitando su URL explícita.
+
+Tras activar controles de una plantilla, ejecutar en una tercera terminal y volver a cargar Agenda:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-start.ps1 tareas
+```
+
+El arranque backend también procesa tareas una vez. No instala un servicio ni un planificador de Windows. En sesiones largas se puede repetir `tareas`; en un despliegue operativo debe programarse periódicamente.
+
+Para una demostración vacía sin borrar históricos, detener servidores, conservar el `.env.local` existente como `.env.before-demo.local` y volver a ejecutar setup con `-DatabaseName appcc_demo_es_demo2` (un nombre nuevo). Se solicitará de nuevo la conexión PostgreSQL; la base y evidencias anteriores permanecen intactas. No se incluye un reset destructivo.
+
+### Recorrido de 5–10 minutos
+
+1. Entrar como **trabajador**, seleccionar **Restaurante APPCC Demo** y revisar Dashboard.
+2. Abrir Agenda, filtrar por un control de temperatura y ejecutar una tarea pasada/actual. Introducir una lectura dentro de los límites mostrados, confirmar y guardar. Comprobar que desaparece de pendientes y aparece en Registros.
+3. Ejecutar otra tarea numérica con valor fuera de límites, escribir observación y subir una foto PNG/JPEG. Para una prueba técnica se puede usar `backend/tests/Fixtures/evidencia.png`. Confirmar y guardar: debe crear una incidencia.
+4. Salir y entrar como **responsable**. En Incidencias abrir la nueva NC, añadir acción correctiva, poner en proceso y resolver; revisar las tres entradas del historial.
+5. En Registros consultar el detalle NC y descargar la evidencia. Verificar también los ejemplos históricos del seed.
+6. Cambiar a **Obrador APPCC Demo**. En Plantillas revisar y aplicar **Obrador · inicio APPCC v1**. Configurar un control pendiente con límites simulados 0–5, unidad °C e instrucciones de demostración, confirmar y activar.
+7. Ejecutar el comando `tareas` anterior. Ir a Agenda y filtrar por ese control: habrá ejecuciones actuales o próximas según su horario. Aplicar de nuevo la plantilla no debe duplicar controles.
+8. Volver al restaurante para comprobar el cambio de contexto. Entrar como **auditor**: puede consultar registros/incidencias y descargar evidencias; no registrar controles ni resolver incidencias. **Admin** también permite probar la gestión operativa.
+
+Los valores del recorrido son simulaciones; las pantallas muestran los límites del control seleccionado. Las tareas futuras se registran al llegar su hora. Las pruebas live aplican la plantilla del obrador en su base; usar una demo nueva si se quiere repetir su primera aplicación.
+
+### Evidencia local del 26/09/2026
+
+Setup ejecutado y repetido en esta instalación; además, checkout limpio sin vendor/node_modules/JWT, instalación desde lockfiles, base nueva `appcc_demo_es_clean20260926`, 11 migraciones y claves nuevas. El resultado inicial contiene 6 planes, 7 controles, 3 registros (2 conformes y 1 NC), evidencia, incidencia/acción y 23 ejecuciones pendientes/vencidas en restaurante; obrador sin controles. Los cuatro usuarios se verifican por HTTP contra `/api/login_check`, no solo por hash. El frontend limpio arranca sin `.env.local`, usando `.env.development`.
+
 ## Entornos y bases
 
 | Uso | APP_ENV | DATABASE_URL apunta a | Base efectiva |
@@ -81,7 +138,7 @@ El ciclo `app:tareas:procesar` debe programarse periódicamente en un despliegue
 
 ## Frontend
 
-En `frontend/`, configurar `.env.local` con `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` para desarrollo normal. Es una URL pública, nunca un lugar para secretos.
+En `frontend/`, `.env.development` ya define `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` para desarrollo normal. Solo crear `.env.local` para sobrescribirlo. Es una URL pública, nunca un lugar para secretos.
 
 ```sh
 npm ci

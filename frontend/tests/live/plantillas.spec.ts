@@ -1,4 +1,6 @@
 import { test, expect as baseExpect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 const api = "http://127.0.0.1:8011";
 const expect = baseExpect.configure({ timeout: 20_000 });
@@ -100,6 +102,23 @@ test("plantilla real, límites, idempotencia, cambio de tenant y logout", async 
     headers: { ...headers, "X-Establecimiento-Id": String(restaurante.establecimiento.id) },
   });
   expect(foreign.status()).toBe(404);
+
+  // La activación debe llegar a la agenda por el mismo ciclo usado en desarrollo/CI.
+  const ciclo = JSON.parse(execFileSync("php", ["bin/console", "app:tareas:procesar", "--json"], {
+    cwd: path.resolve("../backend"),
+    env: { ...process.env, APP_ENV: "dev", APP_DEBUG: "0" },
+    encoding: "utf8",
+    timeout: 30_000,
+  }));
+  expect(ciclo.errores).toEqual([]);
+  await selector.selectOption(String(tenantId));
+  await page.goto("/agenda");
+  await page.getByLabel("Tarea / control", { exact: true }).selectOption(`/api/tareas/${control.id}`);
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Resultados de agenda" })).toHaveAttribute("aria-busy", "false");
+  expect(await page.locator("[data-programacion-id]").count()).toBeGreaterThan(0);
+  await expect(page.getByRole("heading", { name: configured.nombre, exact: true }).first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Cerrar sesión", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(await page.evaluate(() => [sessionStorage.getItem("appcc.token"), sessionStorage.getItem("appcc.establecimiento")])).toEqual([null, null]);

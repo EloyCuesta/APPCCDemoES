@@ -32,6 +32,17 @@ La demo exige observación/confirmación/generación automática de incidencia. 
 
 ## Estado actual del MVP
 
+Revalidación del **26/09/2026**, partiendo de `18203039a386a80bc9e7262300a19ce469712555`: ambas pipelines de ese commit se comprobaron verdes ([Backend](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36180284385), [Frontend](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36180284398)). No se reprodujeron bugs funcionales del dominio; el trabajo de cierre se concentra en instalación Windows y cobertura de aceptación.
+
+- Setup/start PowerShell reproducibles y detenidos ante errores; guardia de entorno/base local, sin borrados ni reset destructivo. La instalación limpia crea JWT, esquema y datos completos; repetir conserva históricos.
+- API local configurada por defecto únicamente en `next dev`. Verificados login HTTP de los cuatro roles, dashboard y agenda sobre una base nueva; instrucciones y recorrido en [DEVELOPMENT](DEVELOPMENT.md).
+- Live ampliado de 6 a **8 pruebas**, cuatro por dispositivo: añade auditor con recuperación de sesión y rechazos HTTP 403 de escritura; la aplicación/activación de plantilla ahora verifica también el ciclo real y su aparición en Agenda. Conserva registro conforme/NC, evidencia, resolución, histórico, descarga e aislamiento.
+- Se conserva el catálogo y seed existentes. No se añaden módulos de producto ni se debilitan reglas multi-tenant.
+
+Validación de esta revisión: composer, contenedor, migraciones/esquema, lint, typecheck, 229 tests frontend, build, 4 E2E y 8 live correctos. PHPUnit original: 513 tests/2.625 aserciones; guardia nueva: 7 tests/14 aserciones correctos. Se está comprobando la suite agregada y las pipelines del commit final; no confundir los checks del punto de partida con esos resultados.
+
+### Auditoría anterior conservada
+
 Auditoría del 25/09/2026 sobre `main` `3c92592536d9a21bca1288ad60e9110d516ad66e` y cambios de esta entrega. ✅ terminado y validado en el nivel indicado; ⚠ implementado pero con problemas o validación de cierre pendiente; ❌ pendiente. Una prueba de componente no equivale a aceptación integrada.
 
 | Área | Estado | Evidencia y alcance |
