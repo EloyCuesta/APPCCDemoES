@@ -60,7 +60,7 @@ async function confirm() {
   mount();
   fireEvent.click(await screen.findByRole("button", { name: "Aplicar Plantilla restaurante" }));
   fireEvent.click(screen.getByRole("checkbox", { name: /He revisado/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Confirmar aplicación", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar aplicación" }));
 }
 async function configure() {
   await confirm();
@@ -85,7 +85,7 @@ it("carga tres plantillas, preview completo, actividad compatible y confirmació
   expect(within(card).getByText("Limpieza de cocina")).toBeVisible();
   expect(within(card).getByText(/Requiere configurar límites/)).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Aplicar Plantilla restaurante" }));
-  expect(screen.getByRole("button", { name: "Confirmar aplicación", exact: true })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Confirmar aplicación" })).toBeDisabled();
   expect(screen.getByRole("heading", { name: "Aplicar en Establecimiento 1" })).toHaveFocus();
   fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
   expect(calls(applyPath, "POST")).toHaveLength(0);

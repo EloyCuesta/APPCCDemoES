@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 // Ejecución explícita: usa la BD dev preparada con app:demo:seed y crea registros reales.
 export default defineConfig({
   testDir: "./tests/live",
+  forbidOnly: Boolean(process.env.CI),
   workers: 1,
   retries: 0,
   timeout: 90_000,
@@ -25,8 +26,10 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // cli-server no importa el entorno del proceso en $_SERVER. Dotenv necesita
+      // $_ENV (E) para respetar DATABASE_URL, APP_ENV y JWT_* externos a .env.
       command:
-        "php -d upload_max_filesize=12M -d post_max_size=24M -S 127.0.0.1:8011 -t public",
+        "php -d variables_order=EGPCS -d upload_max_filesize=12M -d post_max_size=24M -S 127.0.0.1:8011 -t public",
       cwd: "../backend",
       url: "http://127.0.0.1:8011/api/me",
       env: { APP_ENV: "dev", APP_DEBUG: "0" },

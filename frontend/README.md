@@ -1,5 +1,7 @@
 # APPCC Demo ES · Frontend
 
+Entrada principal: [AGENTS.md raíz](../AGENTS.md). Alcance y resultados vigentes en [MVP](../docs/MVP.md); preparación completa y entornos en [DEVELOPMENT](../docs/DEVELOPMENT.md).
+
 Next.js 16.3.6, React 19, TypeScript estricto y App Router. Autenticación Symfony/LexikJWT, contexto multiestablecimiento, dashboard privado y Agenda APPCC operativa: registro de controles, evidencias y confirmación del usuario autenticado. La aplicación no contiene datos mock; los dobles HTTP están exclusivamente en `tests/`.
 
 El módulo **Incidencias APPCC** permite consultar, filtrar y paginar incidencias, visualizar el registro de origen y su historial, añadir acciones correctivas y solicitar las transiciones existentes hasta resolver. Auditor en solo lectura; trabajador puede añadir acciones; admin/responsable también cambian estados. Contratos, manejo de errores, validación y alcance pendiente en [entrega de incidencias](docs/incidencias.md). El flujo Agenda → Registro se mantiene cerrado.
@@ -24,7 +26,7 @@ En PowerShell: `Copy-Item .env.example .env.local`. Si la política de ejecució
 En otra terminal, desde `backend/`, con su entorno ya configurado:
 
 ```sh
-php -S localhost:8000 -t public
+php -d variables_order=EGPCS -S localhost:8000 -t public
 ```
 
 Este servidor PHP es solo para desarrollo. Para preparar una cuenta real, sigue [usuarios y onboarding](../backend/docs/usuarios-onboarding.md). Para cuentas locales reproducibles, utiliza el siguiente comando demo.
@@ -44,7 +46,7 @@ $env:APP_ENV = 'dev'
 php bin/console doctrine:migrations:migrate --no-interaction
 php bin/console app:demo:seed
 php bin/console app:tareas:procesar
-php -d upload_max_filesize=12M -d post_max_size=24M -S 127.0.0.1:8000 -t public
+php -d variables_order=EGPCS -d upload_max_filesize=12M -d post_max_size=24M -S 127.0.0.1:8000 -t public
 ```
 
 En otra terminal:
@@ -234,4 +236,4 @@ Esta fase funciona online. No registra service worker ni persiste registros/evid
 - Capa separada de cola/persistencia cuando se definan idempotencia, conflictos y caducidad offline.
 - Cachés y colas aisladas por usuario/establecimiento y limpiadas al salir; no cachear login ni `/api/me`.
 
-El primer flujo vertical online está implementado: demo, login, establecimiento, Agenda, control, evidencias, confirmación y finalización. Para cerrar un MVP de gestión más amplio quedan las pantallas de históricos/descarga, gestión y cierre de incidencias, adaptación de tareas/plantillas, usuarios, configuración y KPIs reales. Offline/PWA, correo y recuperación de contraseña siguen fuera de este alcance. Las rutas futuras aparecen desactivadas y los indicadores no inventan cifras.
+La referencia canónica del alcance y su validación es [MVP](../docs/MVP.md), junto con [arquitectura](../docs/ARCHITECTURE.md) y [desarrollo](../docs/DEVELOPMENT.md). Ya están implementados históricos/descarga, acciones y resolución de incidencias, aplicación de plantillas, configuración de límites e indicadores reales. Los informes fechados de `docs/` conservan el alcance de sus entregas anteriores. Offline/PWA, correo, recuperación de contraseña e interfaces completas de administración quedan fuera del cierre actual.

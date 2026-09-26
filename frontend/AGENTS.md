@@ -1,3 +1,9 @@
+# Instrucciones específicas del frontend
+
+La entrada principal es [../AGENTS.md](../AGENTS.md). Leer primero `../docs/MVP.md`, `../docs/ARCHITECTURE.md` y `../docs/DEVELOPMENT.md`.
+
+Reutilizar SessionProvider, el cliente API y los contratos de `src/features`; conservar cancelación y aislamiento por establecimiento. Testing Library y Playwright tienen opciones diferentes: `getByRole` de Testing Library no acepta `exact` (un nombre string ya es exacto). Los tests live escriben en la base demo dev y deben ejecutarse separados de `test:e2e`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
