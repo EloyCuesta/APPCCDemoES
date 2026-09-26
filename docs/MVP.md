@@ -36,10 +36,10 @@ Revalidación del **26/09/2026**, partiendo de `18203039a386a80bc9e7262300a19ce4
 
 - Setup/start PowerShell reproducibles y detenidos ante errores; guardia de entorno/base local, sin borrados ni reset destructivo. La instalación limpia crea JWT, esquema y datos completos; repetir conserva históricos.
 - API local configurada por defecto únicamente en `next dev`. Verificados login HTTP de los cuatro roles, dashboard y agenda sobre una base nueva; instrucciones y recorrido en [DEVELOPMENT](DEVELOPMENT.md).
-- Live ampliado de 6 a **8 pruebas**, cuatro por dispositivo: añade auditor con recuperación de sesión y rechazos HTTP 403 de escritura; la aplicación/activación de plantilla ahora verifica también el ciclo real y su aparición en Agenda. Conserva registro conforme/NC, evidencia, resolución, histórico, descarga e aislamiento.
+- Live ampliado de 6 a **8 pruebas**, cuatro por dispositivo: añade auditor con recuperación de sesión, descarga autenticada y rechazos HTTP 403 de escritura; la aplicación/activación de plantilla ahora verifica también el ciclo real y su aparición en Agenda. Conserva registro conforme/NC, evidencia, resolución, histórico, descarga e aislamiento.
 - Se conserva el catálogo y seed existentes. No se añaden módulos de producto ni se debilitan reglas multi-tenant.
 
-Validación de esta revisión: composer, contenedor, migraciones/esquema, lint, typecheck, 229 tests frontend, build, 4 E2E y 8 live correctos. PHPUnit original: 513 tests/2.625 aserciones; guardia nueva: 7 tests/14 aserciones correctos. Se está comprobando la suite agregada y las pipelines del commit final; no confundir los checks del punto de partida con esos resultados.
+Validación local de esta revisión: composer, contenedor, migraciones/esquema, **520 tests PHPUnit/2.639 aserciones**, lint, typecheck, **229 tests frontend**, build, **4 E2E** y **8 live** correctos. Instalación Windows desde cero, login HTTP de los cuatro roles y navegación desktop/mobile confirmados. La extensión final de descarga del auditor se revalida en ambos dispositivos. La revisión `99b11999a698830bb69b6fbd3b9e238e1084b157` también tiene [Backend CI](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36230345867) y [Frontend CI](https://github.com/EloyCuesta/APPCCDemoES/actions/runs/36230345846) verdes. Para cambios posteriores, consultar siempre las pipelines del commit exacto, también después de integrar en `main`.
 
 ### Auditoría anterior conservada
 

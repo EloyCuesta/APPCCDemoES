@@ -35,7 +35,7 @@ try {
         $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
         try { $rng.GetBytes($secretBytes) } finally { $rng.Dispose() }
         $secret = ([BitConverter]::ToString($secretBytes)).Replace('-', '').ToLowerInvariant()
-        [IO.File]::WriteAllText((Join-Path $backendRoot '.env.local'), "APP_ENV=dev`nAPP_SECRET=$secret`nDATABASE_URL='$databaseUrl'`n")
+        [IO.File]::WriteAllText((Join-Path $backendRoot '.env.local'), "APP_ENV=dev`nAPP_SECRET=$secret`nDATABASE_URL='$databaseUrl'`nAPPCC_EVIDENCIAS_DIR=%kernel.project_dir%/var/appcc/evidencias-$DatabaseName`n")
         $encodedPassword = $databaseUrl = $credential = $password = $null
     }
     # Primero las dependencias; no arrancar Symfony hasta validar el entorno efectivo.

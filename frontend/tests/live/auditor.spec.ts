@@ -47,4 +47,19 @@ test("auditor consulta datos reales, recupera sesión y no puede escribir", asyn
   await page.goto("/registros");
   await expect(page.getByRole("heading", { name: "Registros APPCC", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Ver registro #/ }).first()).toBeVisible();
+
+  // La descarga necesita el JWT y el contexto incluso para un rol de solo lectura.
+  await page.getByLabel("Conformidad", { exact: true }).selectOption("false");
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+  await page.getByRole("button", { name: /^Ver registro #/ }).first().click();
+  const record = page.getByRole("region", { name: "Detalle del registro" });
+  const downloading = page.waitForEvent("download");
+  const binary = page.waitForResponse((r) => /\/api\/evidencias\/\d+\/descargar$/.test(r.url()));
+  await record.getByRole("button", { name: /^Descargar / }).first().click();
+  const downloaded = await binary;
+  expect(downloaded.status()).toBe(200);
+  expect(downloaded.request().headers()["x-establecimiento-id"]).toBe(String(member.establecimiento.id));
+  expect(downloaded.request().headers()["authorization"]).toMatch(/^Bearer /);
+  expect(downloaded.headers()["content-type"]).toMatch(/^image\//);
+  expect(await (await downloading).failure()).toBeNull();
 });

@@ -8,7 +8,7 @@
 ## P1 — cierre del MVP
 
 - No se ha identificado otro flujo funcional esencial ausente en la auditoría y aceptación integrada, incluida aplicación/configuración de plantillas y cambio de tenant.
-- Integrar la [PR validada](https://github.com/EloyCuesta/APPCCDemoES/pull/1) en `main` y comprobar las pipelines posteriores a la integración.
+- La [PR de cierre](https://github.com/EloyCuesta/APPCCDemoES/pull/1) reúne las correcciones y la preparación Windows. El cierre de integración exige las pipelines verdes del commit resultante en `main`; los enlaces de evidencia histórica están en [MVP](MVP.md).
 - Instalación Windows reproducible validada desde una copia limpia: scripts de setup/arranque, JWT nuevos, migraciones, seed y API de desarrollo configurada. Instrucciones exactas y recorrido en [DEVELOPMENT](DEVELOPMENT.md).
 
 ## P2 — post-MVP

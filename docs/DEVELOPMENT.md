@@ -7,12 +7,12 @@ Leer primero [MVP](MVP.md) y [arquitectura](ARCHITECTURE.md). Los comandos sigui
 Con PHP, Composer, Node/npm en PATH y PostgreSQL 18 local arrancado, desde la raíz del repositorio:
 
 ```powershell
-git switch fix/mvp-ci-and-agent-docs
+git switch main
 git pull --ff-only
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-setup.ps1
 ```
 
-La entrega está en esa rama mientras la PR #1 siga abierta. Tras integrarla, usar `main`. Cerrar los servidores Next/Playwright antes del setup: `npm ci` necesita sustituir sus dependencias. No hace falta ejecutar PowerShell como administrador.
+Cerrar los servidores Next/Playwright antes del setup: `npm ci` necesita sustituir sus dependencias. No hace falta ejecutar PowerShell como administrador.
 
 En una instalación nueva el setup solicita **la contraseña de tu PostgreSQL local**, para el usuario `postgres` y puerto `5432`; la contraseña de la aplicación demo es otra. Para otra cuenta/puerto: añadir `-DatabaseUser tu_usuario -DatabasePort 5433`. Esa cuenta necesita permiso para crear la base, o debe existir previamente. El script escribe `.env.local` privado con la contraseña codificada en URL y un APP_SECRET aleatorio. Si ese archivo ya existe, lo conserva y usa su configuración. Se detiene ante cualquier fallo.
 
@@ -40,7 +40,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-start.ps1 tare
 
 El arranque backend también procesa tareas una vez. No instala un servicio ni un planificador de Windows. En sesiones largas se puede repetir `tareas`; en un despliegue operativo debe programarse periódicamente.
 
-Para una demostración vacía sin borrar históricos, detener servidores, conservar el `.env.local` existente como `.env.before-demo.local` y volver a ejecutar setup con `-DatabaseName appcc_demo_es_demo2` (un nombre nuevo). Se solicitará de nuevo la conexión PostgreSQL; la base y evidencias anteriores permanecen intactas. No se incluye un reset destructivo.
+Para una demostración vacía sin borrar históricos, detener servidores, conservar el `.env.local` existente como `.env.before-demo.local` y volver a ejecutar setup con `-DatabaseName appcc_demo_es_demo2` (un nombre nuevo). Se solicitará de nuevo la conexión PostgreSQL; cada configuración nueva usa una carpeta privada de evidencias propia de esa base. La base y evidencias anteriores permanecen intactas. No se incluye un reset destructivo.
 
 ### Recorrido de 5–10 minutos
 
@@ -57,7 +57,7 @@ Los valores del recorrido son simulaciones; las pantallas muestran los límites 
 
 ### Evidencia local del 26/09/2026
 
-Setup ejecutado y repetido en esta instalación; además, checkout limpio sin vendor/node_modules/JWT, instalación desde lockfiles, base nueva `appcc_demo_es_clean20260926`, 11 migraciones y claves nuevas. El resultado inicial contiene 6 planes, 7 controles, 3 registros (2 conformes y 1 NC), evidencia, incidencia/acción y 23 ejecuciones pendientes/vencidas en restaurante; obrador sin controles. Los cuatro usuarios se verifican por HTTP contra `/api/login_check`, no solo por hash. El frontend limpio arranca sin `.env.local`, usando `.env.development`.
+Setup ejecutado y repetido en esta instalación; además, checkout limpio sin vendor/node_modules/JWT, instalación desde lockfiles, base nueva `appcc_demo_es_clean20260926`, 11 migraciones y claves nuevas. El resultado inicial contiene 6 planes, 7 controles, 3 registros (2 conformes y 1 NC), evidencia, incidencia/acción y 23 ejecuciones pendientes/vencidas en restaurante; obrador sin controles. Los cuatro usuarios se verifican por HTTP contra `/api/login_check`, no solo por hash. El frontend limpio arranca sin `.env.local`, usando `.env.development`; login, selección, dashboard y agenda verificados en navegador desktop/Pixel 7 con CORS real y sin desbordamiento horizontal.
 
 ## Entornos y bases
 
