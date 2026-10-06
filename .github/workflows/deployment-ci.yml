@@ -1,0 +1,91 @@
+name: Deployment CI
+on:
+  pull_request:
+    branches: [main]
+    paths: ['deploy/**', 'scripts/deploy/**', 'compose.prod.yml', '.dockerignore', 'backend/**', 'frontend/**', '.github/workflows/deployment-ci.yml']
+  push:
+    branches: [main]
+    paths: ['deploy/**', 'scripts/deploy/**', 'compose.prod.yml', '.dockerignore', 'backend/**', 'frontend/**', '.github/workflows/deployment-ci.yml']
+permissions:
+  contents: read
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Create private CI configuration
+        run: |
+          python3 scripts/deploy/init.py appcc.test ci@example.com
+          echo '127.0.0.1 appcc.test' | sudo tee -a /etc/hosts >/dev/null
+          cat > .deploy/Caddyfile.ci <<'CADDY'
+          appcc.test {
+              tls internal
+              reverse_proxy gateway:80
+          }
+          CADDY
+          cat > .deploy/ci.override.yml <<'YAML'
+          services:
+            backend:
+              platform: ${{ matrix.platform }}
+            scheduler:
+              platform: ${{ matrix.platform }}
+            frontend:
+              platform: ${{ matrix.platform }}
+            caddy:
+              volumes:
+                - ./.deploy/Caddyfile.ci:/etc/caddy/Caddyfile:ro
+          YAML
+      - name: Build production API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/backend.Dockerfile
+          platforms: ${{ matrix.platform }}
+          tags: appcc-backend:local
+          load: true
+      - name: Build production frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/frontend.Dockerfile
+          platforms: ${{ matrix.platform }}
+          tags: appcc-frontend:local
+          build-args: NEXT_PUBLIC_API_URL=https://appcc.test
+          load: true
+      - name: Start with production dependencies and migrations
+        env:
+          APPCC_COMPOSE_OVERRIDE: .deploy/ci.override.yml
+        run: |
+          bash scripts/deploy/compose.sh up -d --wait postgres
+          for command in 'doctrine:migrations:migrate --no-interaction' 'doctrine:schema:validate' 'lint:container' 'app:plantillas:cargar'; do
+            bash scripts/deploy/compose.sh run --rm --no-deps backend php bin/console $command
+          done
+          bash scripts/deploy/compose.sh up -d --wait --no-build
+          for attempt in $(seq 1 30); do
+            if curl --noproxy '*' -kfsS https://appcc.test/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Audit backend production dependencies
+        env:
+          APPCC_COMPOSE_OVERRIDE: .deploy/ci.override.yml
+        run: bash scripts/deploy/compose.sh exec -T backend composer audit --no-dev
+      - name: Exercise production persistence and restoration
+        env:
+          CI: 'true'
+          APPCC_COMPOSE_OVERRIDE: .deploy/ci.override.yml
+        run: python3 scripts/deploy/smoke.py
+      - name: Show service status on failure
+        if: failure()
+        env:
+          APPCC_COMPOSE_OVERRIDE: .deploy/ci.override.yml
+        run: |
+          bash scripts/deploy/compose.sh ps -a
+          bash scripts/deploy/compose.sh logs --tail=80 backend scheduler gateway caddy
