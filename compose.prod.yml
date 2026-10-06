@@ -1,0 +1,111 @@
+name: appcc
+
+x-backend: &backend
+  image: appcc-backend:${APPCC_IMAGE_TAG:-local}
+  build:
+    context: .
+    dockerfile: deploy/backend.Dockerfile
+  env_file: ${APPCC_RUNTIME_ENV_FILE:-.deploy/runtime.env}
+  environment:
+    APP_ENV: prod
+    APP_DEBUG: '0'
+  volumes:
+    - evidencias:/var/appcc/evidencias
+    - jwt:/var/appcc/jwt
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
+
+services:
+  postgres:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_USER: appcc
+      POSTGRES_DB: appcc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/deploy/init.py first}
+    # PostgreSQL 18 stores PGDATA below this directory.
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U appcc -d appcc']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    logging: *logging
+
+  backend:
+    <<: *backend
+    healthcheck:
+      test: [CMD-SHELL, 'test "$$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/me)" = 401']
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  scheduler:
+    <<: *backend
+    command: [appcc-scheduler]
+    healthcheck:
+      test: [CMD-SHELL, 'test -f /tmp/appcc-scheduler-last-success && test $$(( $$(date +%s) - $$(cat /tmp/appcc-scheduler-last-success) )) -lt 660']
+      interval: 60s
+      timeout: 5s
+      retries: 2
+      start_period: 90s
+
+  frontend:
+    image: appcc-frontend:${APPCC_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${APP_DOMAIN:?Run scripts/deploy/init.py first}
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3000/login").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    logging: *logging
+
+  gateway:
+    image: nginx:stable-alpine
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Run scripts/deploy/init.py first}
+      ACME_EMAIL: ${ACME_EMAIL:?Run scripts/deploy/init.py first}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - gateway
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  postgres:
+  evidencias:
+  jwt:
+  caddy_data:
+  caddy_config:

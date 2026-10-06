@@ -1,0 +1,10 @@
+[Unit]
+Description=Consistent APPCC database and evidence backup
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/opt/appcc/.deploy/runtime.env
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/appcc
+ExecStart=/usr/bin/bash /opt/appcc/scripts/deploy/backup.sh

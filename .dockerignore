@@ -1,0 +1,15 @@
+.git
+.deploy
+**/__pycache__
+**/node_modules
+**/vendor
+**/.next
+**/.env.local*
+**/.env.*.local
+**/.env.local.php
+**/config/jwt
+**/var
+**/test-results
+**/playwright-report
+**/.phpunit.cache
+**/coverage

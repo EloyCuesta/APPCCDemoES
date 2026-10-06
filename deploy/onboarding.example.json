@@ -1,0 +1,24 @@
+{
+  "entidadFiscal": {
+    "tipo": "empresa",
+    "nif": "B99887766",
+    "razonSocial": "SUSTITUIR: empresa del piloto",
+    "direccion": "SUSTITUIR",
+    "codigoPostal": "39300",
+    "localidad": "Torrelavega",
+    "provincia": "Cantabria"
+  },
+  "establecimiento": {
+    "nombre": "SUSTITUIR: establecimiento del piloto",
+    "tipoActividad": "restaurante",
+    "direccion": "SUSTITUIR",
+    "codigoPostal": "39300",
+    "localidad": "Torrelavega",
+    "provincia": "Cantabria"
+  },
+  "administrador": {
+    "nombre": "SUSTITUIR",
+    "apellidos": "SUSTITUIR",
+    "email": "sustituir@example.com"
+  }
+}

@@ -53,3 +53,5 @@ npm run test:live
 ```
 
 Consultar también `frontend/AGENTS.md` antes de modificar Next.js. El detalle de cierre y los resultados actuales viven en [MVP](docs/MVP.md); las prioridades en [ROADMAP](docs/ROADMAP.md).
+
+Para cambios de infraestructura, leer [DEPLOYMENT](docs/DEPLOYMENT.md) y validar Deployment CI en ambas arquitecturas. Conservar los volúmenes privados, el guard de demo en prod y la separación entre la base del piloto y las suites destructivas. La configuración generada en `.deploy/` contiene secretos y nunca se incorpora a commits, imágenes ni logs.
